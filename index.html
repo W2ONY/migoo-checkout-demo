@@ -568,10 +568,11 @@ body{
 }
 .devbar h4{margin:0 0 4px; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3); font-weight:600}
 .devbar h4:not(:first-child){margin-top:18px}
-.devbar .seg{display:flex; gap:6px; margin-top:8px}
+.devbar .seg{display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:8px}
 .devbar .seg button{
-  flex:1; border:1px solid var(--line-2); background:#fff; border-radius:9px;
-  padding:8px 0; font-family:var(--font); font-size:12.5px; font-weight:600; color:var(--ink-2); cursor:pointer;
+  border:1px solid var(--line-2); background:#fff; border-radius:9px;
+  padding:8px 2px; font-family:var(--font); font-size:12px; font-weight:600; color:var(--ink-2); cursor:pointer;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
 .devbar .seg button.on{background:var(--blue); border-color:var(--blue); color:#fff}
 .devbar .steps{display:flex; flex-direction:column; gap:5px; margin-top:8px}
@@ -761,6 +762,7 @@ body{
     <button data-user="new" class="on">New user</button>
     <button data-user="ret">Returning</button>
     <button data-user="nofid">No Face ID</button>
+    <button data-user="safe">Trusted</button>
   </div>
   <h4>Steps</h4>
   <div class="steps" id="stepList"></div>
@@ -1407,6 +1409,8 @@ function issueOrderCard(){
     b.disabled = true;
     // no Face ID on this device: verify with ShopeePay PIN + verification code
     if(state.userType === 'nofid'){ openPin('pay-pin'); return; }
+    // no Face ID but a trusted environment: the PIN alone completes payment
+    if(state.userType === 'safe'){ openPin('pay'); return; }
     // brand-new ShopeePay (nothing bound yet): ask for the payment details first
     if(state.pay.id === 'sp-new'){
       b.disabled = false;                                  // sheet can be dismissed — allow retry
@@ -1640,14 +1644,16 @@ const S_ENROLL = { label:'Enroll Face ID', run(){
 const FLOWS = {
   new:   [S_LIST, S_REQ, S_ADDR, S_CREATE, S_CARD, S_PAID, S_ENROLL, S_RECAP, S_MEMORY],
   ret:   [S_LIST, S_REQ, S_ADDR, S_CREATE, S_CARD, S_PAID, S_RECAP, S_MEMORY],
-  nofid: [S_LIST, S_REQ, S_ADDR, S_CREATE, S_CARD, S_PAID, S_RECAP, S_MEMORY]
+  nofid: [S_LIST, S_REQ, S_ADDR, S_CREATE, S_CARD, S_PAID, S_RECAP, S_MEMORY],
+  safe:  [S_LIST, S_REQ, S_ADDR, S_CREATE, S_CARD, S_PAID, S_RECAP, S_MEMORY]
 };
 function curFlow(){ return FLOWS[state.userType]; }
 
 const NOTES = {
   new:'New user: tapping pay asks for ShopeePay details first (highlighted row → empty state → set-up form). After Save: verify phone (code) → set a 6-digit PIN → confirm payment with it. Afterwards Migoo offers Face ID enrollment; once enrolled, future payments use Face ID.',
   ret:'Returning user: Face ID is already enrolled, so "Pay with Shopee Pay" verifies with Face ID and confirms right in the chat. The payment pencil opens the Stripe-style sheet; the mail banner swipes up to dismiss.',
-  nofid:'No Face ID on this device: paying verifies with the ShopeePay PIN and then a verification code. Everything after payment is unchanged (recap → Memory).'
+  nofid:'No Face ID on this device: paying verifies with the ShopeePay PIN and then a verification code. Everything after payment is unchanged (recap → Memory).',
+  safe:'No Face ID, but a trusted environment (recognized device & network): entering the ShopeePay PIN completes the payment directly — no verification code. Everything after payment is unchanged.'
 };
 
 function next(){
