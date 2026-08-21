@@ -76,9 +76,9 @@ body{
   width:30px; height:30px; display:flex; align-items:center; justify-content:center;
 }
 
-/* order-task badge: sits in the nav bar, left of the doc-search icon */
+/* order-task badge: overlays either nav bar, left of the doc-search icon */
 .task-badge{
-  position:absolute; right:54px; top:50%; transform:translateY(-50%);
+  position:absolute; right:54px; top:64px; z-index:7;
   width:32px; height:28px; border-radius:8px;
   background:#E8F8ED; border:1px solid #C7EBD3;
   display:none; align-items:center; justify-content:center;
@@ -92,10 +92,36 @@ body{
   border:1.5px solid #fff;
 }
 @keyframes pop{
-  0%{transform:translateY(-50%) scale(.6);opacity:0}
-  60%{transform:translateY(-50%) scale(1.08)}
-  100%{transform:translateY(-50%) scale(1);opacity:1}
+  0%{transform:scale(.6);opacity:0}
+  60%{transform:scale(1.08)}
+  100%{transform:scale(1);opacity:1}
 }
+
+/* ===================== Assistant shell (fifth path) ===================== */
+.a-nav{
+  display:none; flex:0 0 auto; align-items:center; gap:10px;
+  padding:8px 16px 8px; background:var(--bg); z-index:6;
+}
+.a-nav .a-tabs{flex:1; display:flex; justify-content:center; gap:28px; font-size:17.5px; color:var(--ink-3)}
+.a-nav .a-tabs .t{padding-bottom:5px}
+.a-nav .a-tabs .t.on{color:var(--ink); font-weight:700; border-bottom:3px solid var(--ink)}
+.a-chips{display:none; gap:8px; padding:2px 16px 10px; overflow-x:auto}
+.a-chips::-webkit-scrollbar{display:none}
+.a-chips .ac{
+  flex:0 0 auto; display:flex; align-items:center; gap:7px;
+  border:1px solid var(--line-2); border-radius:12px; padding:9px 14px;
+  font-size:14.5px; font-weight:500; color:var(--ink); background:#fff;
+}
+.a-genby{display:none; text-align:center; font-size:10px; color:var(--ink-4); padding:0 0 4px}
+.a-tabbar{display:none; border-top:1px solid var(--line); padding:8px 0 2px}
+.a-tabbar .t{flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; font-size:10.5px; color:#6E7278}
+.phone.assistant .navbar,
+.phone.assistant .tabbar{display:none}
+.phone.assistant .a-nav{display:flex}
+.phone.assistant .a-chips{display:flex}
+.phone.assistant .a-genby{display:block}
+.phone.assistant .a-tabbar{display:flex}
+.phone.assistant .composer .ic:last-child{order:-1}   /* plus moves to the left */
 
 /* ===================== Thread ===================== */
 .scroller{
@@ -168,6 +194,14 @@ body{
 .order-wrap .lead{font-size:15px; color:var(--ink); margin:0 0 11px}
 .order{background:#fff; border-radius:var(--r-m); padding:14px; border:1px solid var(--line)}
 .order .cap{font-size:13px; color:var(--ink-2); margin-bottom:11px}
+.order .cap-row{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:11px}
+.order .cap-row .cap{margin-bottom:0}
+.order-timer{
+  font-size:11.5px; font-weight:700; color:#B45309; background:#FEF3C7;
+  border-radius:6px; padding:2px 7px; font-variant-numeric:tabular-nums; flex:0 0 auto;
+}
+.order-timer.expired{color:#fff; background:var(--red)}
+.order-timer.hidden{display:none}
 .order .row-item{display:flex; gap:11px; align-items:flex-start}
 .order .row-item .thumb{width:56px;height:56px;border-radius:var(--r-s);flex:0 0 56px;overflow:hidden;background:var(--surface-3)}
 .order .row-item .thumb svg{display:block;width:100%;height:100%}
@@ -332,6 +366,147 @@ body{
 .pdp-foot .ask span{font-size:10.5px; color:var(--ink-2)}
 .pdp-foot .cta{margin-top:0; flex:1}
 .pdp-foot-safe{flex:0 0 auto; height:20px}
+
+/* section divider band inside the PDP */
+.pdp-sep{height:8px; background:var(--surface-3); margin:18px -16px}
+/* variant pill floating on the gallery */
+.gallery .variant-pill{
+  position:absolute; left:50%; bottom:12px; transform:translateX(-50%);
+  background:rgba(255,255,255,.92); color:var(--ink); font-size:12px; font-weight:600;
+  border-radius:12px; padding:3px 11px; box-shadow:0 1px 6px rgba(0,0,0,.12);
+}
+/* supplier price-comparison list */
+.sup-row{display:flex; align-items:center; gap:12px; padding:13px 0; border-bottom:1px solid var(--line)}
+.sup-row:last-of-type{border-bottom:0}
+.sup-logo{
+  width:44px; height:44px; border-radius:22px; background:#fff; border:1px solid var(--line-2);
+  display:flex; align-items:center; justify-content:center; flex:0 0 44px;
+}
+.sup-mid{flex:1; min-width:0}
+.sup-price{font-size:17px; font-weight:700; color:var(--ink)}
+.sup-sub{display:flex; align-items:center; gap:7px; font-size:13px; color:var(--ink-3); margin-top:3px}
+.sup-sub .star{color:#F5A623}
+.sup-sub .bar{color:var(--line-2)}
+.sup-sub .lnk{cursor:pointer}
+.sup-btn{
+  flex:0 0 auto; border:1px solid var(--line-2); background:#fff; color:var(--ink);
+  font-family:var(--font); font-size:14.5px; font-weight:500; border-radius:10px;
+  padding:9px 18px; cursor:pointer;
+}
+.sup-btn:active{background:var(--surface-3)}
+.sup-list.collapsed .sup-row:nth-child(n+4){display:none}
+.sup-toggle{text-align:center; padding:12px 0 2px; font-size:14px; color:var(--ink-2); cursor:pointer}
+/* reviews */
+.rev-head{display:flex; align-items:center; gap:5px; font-size:16.5px; font-weight:700; color:var(--ink); margin-bottom:12px}
+.rev-name{font-size:13.5px; font-weight:600; color:var(--ink)}
+.rev-meta{display:flex; align-items:center; gap:8px; margin-top:3px; font-size:13px; color:var(--ink-3)}
+.rev-meta .stars{color:#F5A623; letter-spacing:1px; font-size:13px}
+.rev-text{font-size:14px; color:var(--ink-2); line-height:1.5; margin-top:8px;
+  display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden}
+.rev-media{display:flex; gap:8px; margin-top:11px}
+.rev-media .rm{position:relative; width:106px; height:106px; border-radius:8px; overflow:hidden; background:var(--surface-3); flex:0 0 auto}
+.rev-media .rm .dur{position:absolute; left:6px; bottom:6px; background:rgba(0,0,0,.65); color:#fff; font-size:10.5px; border-radius:4px; padding:1px 5px}
+.rev-media .rm .play{
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+}
+.rev-media .rm .play i{
+  width:30px; height:30px; border-radius:15px; background:rgba(0,0,0,.45);
+  display:flex; align-items:center; justify-content:center;
+}
+.rev-media .rm .more{position:absolute; right:6px; bottom:6px; background:rgba(0,0,0,.65); color:#fff; font-size:10.5px; border-radius:4px; padding:1px 5px}
+
+/* ===================== Shopee checkout page (quick-buy path) ===================== */
+.checkout{
+  position:absolute; inset:0; z-index:32; background:#F5F5F5;
+  transform:translateY(100%); transition:transform .34s cubic-bezier(.32,.72,0,1);
+  display:flex; flex-direction:column; border-radius:46px; overflow:hidden;
+}
+.checkout.on{transform:none}
+.ck-top{background:#fff; padding:52px 14px 12px; display:flex; align-items:center; position:relative; flex:0 0 auto}
+.ck-top .bk{position:absolute; left:14px; bottom:10px; cursor:pointer; padding:4px}
+.ck-top .tt{flex:1; text-align:center; font-size:17.5px; font-weight:600; color:var(--ink)}
+.ck-scroll{flex:1; overflow-y:auto}
+.ck-scroll::-webkit-scrollbar{width:0}
+.ck-body{padding:8px 10px 14px}
+.ck-card{background:#fff; border-radius:10px; padding:12px; margin-bottom:8px}
+.ck-addr{display:flex; gap:9px}
+.ck-addr .pin{flex:0 0 auto; margin-top:2px}
+.ck-addr .mid{flex:1; min-width:0}
+.ck-addr .nm{font-size:15px; font-weight:600; color:var(--ink)}
+.ck-addr .nm span{font-weight:400; color:var(--ink-3); font-size:13px}
+.ck-addr .ln{font-size:13px; color:var(--ink-2); line-height:1.45; margin-top:3px}
+.ck-chev{flex:0 0 auto; align-self:center; color:var(--ink-4)}
+.ck-shop{display:flex; align-items:center; gap:7px; font-size:14.5px; font-weight:600; color:var(--ink); margin-bottom:10px}
+.ck-shop .tag{background:#EE4D2D; color:#fff; font-size:10px; font-weight:700; border-radius:3px; padding:1.5px 5px}
+.ck-item{display:flex; gap:10px}
+.ck-item .im{width:64px; height:64px; border-radius:6px; overflow:hidden; background:var(--surface-3); flex:0 0 64px}
+.ck-item .mid{flex:1; min-width:0}
+.ck-item .nm{font-size:13.5px; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.ck-item .vr{font-size:12px; color:var(--ink-3); margin-top:2px}
+.ck-item .pr{margin-top:6px; font-size:14.5px; font-weight:700; color:#EE4D2D}
+.ck-item .pr s{color:var(--ink-4); font-weight:400; font-size:12px; margin-left:6px}
+.ck-item .qty{flex:0 0 auto; align-self:flex-end; font-size:12.5px; color:var(--ink-3)}
+.ck-prot{display:flex; gap:9px; background:var(--surface-3); border-radius:8px; padding:10px; margin-top:10px}
+.ck-prot .cb{width:18px;height:18px;border-radius:4px;border:1.6px solid #C7C7CC;background:#fff;flex:0 0 18px;position:relative;cursor:pointer;margin-top:1px}
+.ck-prot.on .cb{background:#EE4D2D;border-color:#EE4D2D}
+.ck-prot.on .cb::after{content:'';position:absolute;left:5px;top:2px;width:5px;height:9px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.ck-prot .mid{flex:1}
+.ck-prot .t{display:flex; justify-content:space-between; font-size:13.5px; font-weight:600; color:var(--ink)}
+.ck-prot .t span{font-weight:400; color:var(--ink-2)}
+.ck-prot .d{font-size:12px; color:var(--ink-3); line-height:1.45; margin-top:3px}
+.ck-prot .d a{color:var(--blue); text-decoration:none}
+.ck-row{display:flex; align-items:center; justify-content:space-between; padding:13px 12px; background:#fff; border-radius:10px; margin-bottom:8px; font-size:14.5px; color:var(--ink); font-weight:500}
+.ck-row .ph{color:var(--ink-4); font-weight:400; display:flex; align-items:center; gap:5px}
+.ck-ship-h{display:flex; justify-content:space-between; align-items:center; font-size:14.5px; font-weight:600; color:var(--ink); padding:2px 2px 10px}
+.ck-ship-h .va{font-size:13px; color:var(--ink-3); font-weight:400; display:flex; align-items:center; gap:4px}
+.ck-ship{border:1px solid var(--line-2); border-radius:8px; padding:11px 12px; margin-bottom:8px; position:relative; cursor:pointer}
+.ck-ship.on{border-color:#26AA5E; background:#F7FCF9}
+.ck-ship.on::before{
+  content:''; position:absolute; top:0; left:0; width:22px; height:22px;
+  background:#26AA5E; clip-path:polygon(0 0, 100% 0, 0 100%); border-radius:8px 0 0 0;
+}
+.ck-ship.on::after{
+  content:'✓'; position:absolute; top:0px; left:2px; color:#fff; font-size:9px; font-weight:700;
+}
+.ck-ship .d1{display:flex; justify-content:space-between; font-size:13.5px}
+.ck-ship .d1 .dt{color:#26AA5E; font-weight:600; display:flex; align-items:center; gap:5px}
+.ck-ship .d1 .pz s{color:var(--ink-4)}
+.ck-ship .d1 .pz{color:var(--ink)}
+.ck-ship .nm2{font-size:13px; color:var(--ink); margin-top:3px}
+.ck-ship .fs{font-size:12.5px; color:#26AA5E; margin-top:2px}
+.ck-late{font-size:12px; color:var(--ink-3); padding:2px 4px 6px}
+.ck-foot{
+  flex:0 0 auto; background:#fff; border-top:1px solid var(--line);
+  display:flex; align-items:center; gap:12px; padding:10px 12px 26px;
+}
+.ck-foot .sums{flex:1; text-align:right}
+.ck-foot .tot{font-size:13px; color:var(--ink)}
+.ck-foot .tot b{font-size:17px; color:#EE4D2D}
+.ck-foot .sv{font-size:12px; color:#EE4D2D; margin-top:1px}
+.ck-foot .po{
+  border:0; background:#EE4D2D; color:#fff; font-family:var(--font);
+  font-size:15.5px; font-weight:600; border-radius:8px; padding:13px 22px; cursor:pointer;
+}
+.ck-foot .po:active{background:#D8431F}
+.ck-toast{
+  position:absolute; left:50%; bottom:150px; transform:translateX(-50%);
+  background:rgba(30,30,32,.92); color:#fff; font-size:13px; border-radius:8px;
+  padding:9px 14px; display:flex; align-items:center; gap:6px;
+  opacity:0; transition:opacity .25s ease; pointer-events:none; white-space:nowrap;
+}
+.ck-toast.on{opacity:1}
+.ck-done{padding:90px 26px 20px; text-align:center}
+.ck-done .ok{
+  width:74px; height:74px; border-radius:37px; background:#26AA5E; margin:0 auto 18px;
+  display:flex; align-items:center; justify-content:center;
+}
+.ck-done .h{font-size:21px; font-weight:700; color:var(--ink)}
+.ck-done .p{font-size:14.5px; color:var(--ink-2); margin-top:8px; line-height:1.5}
+.ck-done .o{font-size:12.5px; color:var(--ink-3); margin-top:10px}
+.ck-done .done-btn{
+  margin-top:26px; border:0; background:#EE4D2D; color:#fff; font-family:var(--font);
+  font-size:15.5px; font-weight:600; border-radius:8px; padding:13px 48px; cursor:pointer;
+}
 
 /* ===================== Payment sheet (Stripe-style bottom drawer) ===================== */
 .paysheet{position:absolute; inset:0; z-index:34; pointer-events:none}
@@ -617,19 +792,40 @@ body{
         <path d="M12.3 15.3l2.4 2.4" stroke="#111" stroke-width="1.5" stroke-linecap="round"/>
       </svg>
     </div>
-    <!-- order-task badge, left of the doc-search icon -->
-    <div class="task-badge" id="taskBadge">
-      <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
-        <rect x="2.2" y="2.2" width="13.6" height="13.6" rx="3" stroke="#1E9B54" stroke-width="1.6"/>
-        <path d="M5.4 6.6h7.2M5.4 9h7.2M5.4 11.4h4.4" stroke="#1E9B54" stroke-width="1.6" stroke-linecap="round"/>
-      </svg>
-      <span class="dot">1</span>
-    </div>
+  </div>
+
+  <!-- Assistant shell nav (fifth path) -->
+  <div class="a-nav">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.6" stroke="#111" stroke-width="1.7"/><path d="M4.8 20c.7-3.7 3.8-5.7 7.2-5.7s6.5 2 7.2 5.7" stroke="#111" stroke-width="1.7" stroke-linecap="round"/></svg>
+    <div class="a-tabs"><span class="t">For You</span><span class="t on">Assistant</span></div>
+    <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+      <path d="M4.5 3.2h8.2l4.8 4.8v10.8a1.2 1.2 0 0 1-1.2 1.2H4.5a1.2 1.2 0 0 1-1.2-1.2V4.4a1.2 1.2 0 0 1 1.2-1.2z" stroke="#111" stroke-width="1.5"/>
+      <path d="M12.4 3.4V8h4.6" stroke="#111" stroke-width="1.5"/>
+      <circle cx="10" cy="13" r="3" stroke="#111" stroke-width="1.5"/>
+      <path d="M12.3 15.3l2.4 2.4" stroke="#111" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+  </div>
+
+  <!-- order-task badge, overlays either nav -->
+  <div class="task-badge" id="taskBadge">
+    <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
+      <rect x="2.2" y="2.2" width="13.6" height="13.6" rx="3" stroke="#1E9B54" stroke-width="1.6"/>
+      <path d="M5.4 6.6h7.2M5.4 9h7.2M5.4 11.4h4.4" stroke="#1E9B54" stroke-width="1.6" stroke-linecap="round"/>
+    </svg>
+    <span class="dot">1</span>
   </div>
 
   <!-- thread -->
   <div class="scroller" id="scroller">
     <div class="thread" id="thread"></div>
+  </div>
+
+  <!-- assistant quick-action chips -->
+  <div class="a-chips">
+    <div class="ac"><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M4 6.5h12l-1 10.5H5z" stroke="#111" stroke-width="1.5" stroke-linejoin="round"/><path d="M7 8.5V5.4a3 3 0 0 1 6 0v3.1" stroke="#111" stroke-width="1.5" stroke-linecap="round"/></svg>Shopping</div>
+    <div class="ac"><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M2.5 12.5l15-8-4.5 13-3-4.5z" stroke="#111" stroke-width="1.5" stroke-linejoin="round"/><path d="M10 13.5l7.5-9" stroke="#111" stroke-width="1.5"/></svg>Travel</div>
+    <div class="ac"><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M4.5 2.5h11v15l-2-1.3-1.8 1.3-1.7-1.3L8.3 17.5l-1.8-1.3-2 1.3z" stroke="#111" stroke-width="1.5" stroke-linejoin="round"/><path d="M7 7h6M7 10.5h6" stroke="#111" stroke-width="1.5" stroke-linecap="round"/></svg>Spending</div>
+    <div class="ac"><svg width="16" height="16" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7.5" stroke="#111" stroke-width="1.5"/><path d="M10 5.8V10l3 2" stroke="#111" stroke-width="1.5" stroke-linecap="round"/></svg>Automation</div>
   </div>
 
   <!-- composer -->
@@ -649,6 +845,8 @@ body{
     </div>
   </div>
 
+  <div class="a-genby">Generated by AI</div>
+
   <!-- tab bar -->
   <div class="tabbar">
     <div class="tab"><span id="tabLogo"></span></div>
@@ -664,6 +862,14 @@ body{
       </svg>
     </div>
   </div>
+  <!-- assistant five-tab bar -->
+  <div class="a-tabbar">
+    <div class="t"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 10.5L12 4l8 6.5V20a1 1 0 0 1-1 1h-4.6v-5.6h-4.8V21H5a1 1 0 0 1-1-1z" stroke="#6E7278" stroke-width="1.6" stroke-linejoin="round"/></svg>Home</div>
+    <div class="t" id="aTabMigoo">Migoo</div>
+    <div class="t"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="13" rx="2.5" stroke="#6E7278" stroke-width="1.6"/><path d="M8 3l4 3 4-3" stroke="#6E7278" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M10.2 10.2l4.4 2.5-4.4 2.5z" fill="#6E7278"/></svg>Live &amp; Video</div>
+    <div class="t"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M6 9.5a6 6 0 0 1 12 0c0 4.2 1.6 5.6 1.6 5.6H4.4S6 13.7 6 9.5z" stroke="#6E7278" stroke-width="1.6" stroke-linejoin="round"/><path d="M10 18.8a2.1 2.1 0 0 0 4 0" stroke="#6E7278" stroke-width="1.6" stroke-linecap="round"/></svg>Notification</div>
+    <div class="t"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8.4" r="3.8" stroke="#6E7278" stroke-width="1.6"/><path d="M4.8 20.5c.7-3.9 3.9-6 7.2-6s6.5 2.1 7.2 6" stroke="#6E7278" stroke-width="1.6" stroke-linecap="round"/></svg>Me</div>
+  </div>
   <div class="home-ind"><i></i></div>
 
   <!-- ============ PDP sheet ============ -->
@@ -674,6 +880,7 @@ body{
           <svg width="15" height="15" viewBox="0 0 15 15"><path d="M2 2l11 11M13 2L2 13" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
         </div>
         <div class="track" id="galleryTrack"></div>
+        <div class="variant-pill">Beige</div>
         <div class="count" id="galleryCount">1/15</div>
       </div>
       <div class="pdp-body">
@@ -683,10 +890,13 @@ body{
         <div class="why">
           <ul id="pdpWhy"></ul>
         </div>
-        <div class="spec-label">Color: <span id="specColor">Black</span>
-          <svg width="7" height="11" viewBox="0 0 7 11"><path d="M1.2 1.2L5.6 5.5 1.2 9.8" stroke="#8E8E93" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>
-        </div>
-        <div class="swatches" id="swatches"></div>
+        <div id="pdpSpecs"></div>
+        <div class="pdp-sep"></div>
+        <div class="sup-list collapsed" id="supList"></div>
+        <div class="sup-toggle" id="supToggle">Show More ⌄</div>
+        <div class="pdp-sep"></div>
+        <div class="rev-head">What People are Saying <svg width="8" height="13" viewBox="0 0 8 13"><path d="M1.5 1.5L6.5 6.5 1.5 11.5" stroke="#111" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></div>
+        <div id="pdpReview"></div>
       </div>
     </div>
     <div class="pdp-foot">
@@ -697,6 +907,17 @@ body{
       <button class="cta" id="pdpBuy">Buy at Shopee · $29.00</button>
     </div>
     <div class="pdp-foot-safe"></div>
+  </div>
+
+  <!-- ============ Shopee checkout page (quick-buy) ============ -->
+  <div class="checkout" id="checkout">
+    <div class="ck-top">
+      <div class="bk" id="ckBack"><svg width="19" height="19" viewBox="0 0 19 19"><path d="M12 3l-7 6.5 7 6.5" stroke="#EE4D2D" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="tt">Checkout</div>
+    </div>
+    <div class="ck-scroll"><div class="ck-body" id="ckBody"></div></div>
+    <div class="ck-foot" id="ckFoot"></div>
+    <div class="ck-toast" id="ckToast"><svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="7" fill="#fff" opacity=".25"/><path d="M4 7.2l2 2 4-4.2" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>1 voucher(s) applied</div>
   </div>
 
   <!-- ============ Payment sheet (Stripe-style) ============ -->
@@ -763,11 +984,14 @@ body{
     <button data-user="ret">Returning</button>
     <button data-user="nofid">No Face ID</button>
     <button data-user="safe">Trusted</button>
+    <button data-user="asst">Assistant</button>
+    <button data-user="qb">Quick buy</button>
   </div>
   <h4>Steps</h4>
   <div class="steps" id="stepList"></div>
   <button class="restart" id="restart">↻ Restart</button>
   <button class="restart" id="openPdpBtn" style="margin-top:8px">Open product page</button>
+  <button class="restart" id="expireBtn" style="margin-top:8px">Expire order (5s)</button>
   <div class="note" id="pathNote"></div>
 </div>
 
@@ -820,7 +1044,10 @@ const PRODUCTS = {
       'Hand-woven vegan leather finished with a gold-tone knot buckle',
       'Fits the essentials — phone, cardholder, keys and a mini pouch'
     ],
-    colors:[{name:'Beige'},{name:'Black'},{name:'Brown'},{name:'White',off:true}]
+    specs:[
+      {label:'Color', options:[{name:'Beige'},{name:'Black'},{name:'Brown'},{name:'White',off:true}]},
+      {label:'Size', options:[{name:'Small'},{name:'Medium'}]}
+    ]
   },
   bag2:{
     art:'bag2',
@@ -834,7 +1061,10 @@ const PRODUCTS = {
       'Smooth vintage-tan finish with contrast stitching and a gold zip',
       'Adjustable strap — carry it on the shoulder or crossbody'
     ],
-    colors:[{name:'Tan'},{name:'Black'},{name:'Cream'}]
+    specs:[
+      {label:'Color', options:[{name:'Tan'},{name:'Black'},{name:'Cream'}]},
+      {label:'Strap', options:[{name:'Adjustable'},{name:'Crossbody'}]}
+    ]
   },
   bag3:{
     art:'bag3',
@@ -848,7 +1078,10 @@ const PRODUCTS = {
       'Soft suede body framed with black leather trim and a belt detail',
       'Magnetic top closure plus an inner zip pocket for valuables'
     ],
-    colors:[{name:'Camel'},{name:'Black'},{name:'Taupe',off:true}]
+    specs:[
+      {label:'Color', options:[{name:'Camel'},{name:'Black'},{name:'Taupe',off:true}]},
+      {label:'Size', options:[{name:'Large'},{name:'Medium'}]}
+    ]
   }
 };
 
@@ -857,19 +1090,59 @@ const SAVED_ADDR = {
   full:'535 Mission St, Floor 14, San Francisco, CA 94105, USA\n+1 (415) 555-6432',
   short:'Jack Tate, 535 Mission St, San Francisco',
   address:'535 Mission St, Floor 14, San Francisco, CA 94105, USA',
-  phone:'+1 (415) 555-6432'
+  phone:'+1 (415) 555-6432',
+  partial:'535 Mission St, Floor 14, San Francisco',
+  supplement:'Jack Tate, CA 94105, USA\n+1 (415) 555-6432'
 };
 const NEW_ADDR = {
   full:'88 King St, Apt 12, San Francisco, CA 94107, USA\n+1 (415) 555-8890',
   short:'Jack Tate, 88 King St, San Francisco',
   address:'88 King St, Apt 12, San Francisco, CA 94107, USA',
-  phone:'+1 (415) 555-8890'
+  phone:'+1 (415) 555-8890',
+  partial:'88 King St, Apt 12, San Francisco',
+  supplement:'Jack Tate, CA 94107, USA\n+1 (415) 555-8890'
 };
+
+/* two-stage address intake with a completeness check: the first message
+   is missing required fields, Migoo calls them out, the follow-up completes
+   the set. Used by the delivery step and the order-card address edit. */
+function collectAddress(target, onDone){
+  setPending(target.partial, ()=>{
+    userMsg(target.partial);
+    after(()=>{
+      aiMsg([
+        {t:'p', text:'Thanks! Quick check before I continue — a few required details are missing:'},
+        {t:'ul', items:[
+          'Street address & city — received ✓',
+          'Full name — missing',
+          'State / Region — missing',
+          'Phone number — missing'
+        ]},
+        {t:'p', text:'Please send the missing details to complete your delivery info.'}
+      ]);
+      setPending(target.supplement, ()=>{
+        userMsg(target.supplement);
+        state.addr = target;
+        onDone();
+      });
+    }, 650);
+  });
+}
+/* amounts follow the store the user bought through (8.875% CA tax) */
+function orderAmounts(){
+  const p = PRODUCTS[state.orderKey];
+  const price = state.orderPrice ?? parseFloat(p.price.slice(1));
+  const tax = Math.round(price * 8.875) / 100;
+  const f = n => '$' + n.toFixed(2);
+  return {price:f(price), tax:f(tax), total:f(price + tax)};
+}
 /* order card spec follows whichever product/address/payment the user picked;
    the third row entry marks a field as editable (pencil button) */
 function orderSpec(){
   const p = PRODUCTS[state.orderKey];
+  const a = orderAmounts();
   return {
+    itemPrice: a.price,
     product: state.orderKey,
     cap:'Review and confirm your purchase',
     lead:'Migoo has prepared this order for you:',
@@ -878,8 +1151,8 @@ function orderSpec(){
       ['Shipping','Standard (1-2 days) · FREE'],
       ['Payment', {html:`<span class="pm-chip">${payLogo(state.pay.logo,26,18)}<span>${esc(state.pay.label)}</span></span>`}, 'pay']
     ],
-    totalLabel:`Total (incl. ${p.tax} tax)`,
-    total:p.total,
+    totalLabel:`Total (incl. ${a.tax} tax)`,
+    total:a.total,
     cta:`Pay with ${state.pay.payName}`,
     mode:'pay'
   };
@@ -972,14 +1245,14 @@ function orderMsg(spec, onCta){
   wrap.appendChild(el('p','lead', esc(spec.lead)));
   const card = el('div','order');
   card.innerHTML = `
-    ${spec.cap?`<div class="cap">${esc(spec.cap)}</div>`:''}
+    ${spec.cap?`<div class="cap-row"><span class="cap">${esc(spec.cap)}</span><span class="order-timer">30:00</span></div>`:''}
     <div class="row-item">
       <div class="thumb">${art(p.art)}</div>
       <div class="mid">
         <div class="nm">${esc(p.shortName)}</div>
         <div class="sub">${esc(p.variant)}</div>
       </div>
-      <div class="amt">${esc(p.price)}</div>
+      <div class="amt">${esc(spec.itemPrice || p.price)}</div>
     </div>
     <hr>
     ${spec.rows.map(r=>`<div class="kv"><span class="k">${esc(r[0])}</span><span class="v">${r[1] && r[1].html ? r[1].html : esc(r[1])}</span>${r[2]?`<button class="pen" data-edit="${r[2]}" aria-label="Edit"><svg width="11" height="11" viewBox="0 0 12 12"><path d="M8.6 1.6l1.8 1.8-6.6 6.6-2.3.5.5-2.3z" fill="none" stroke="#8E8E93" stroke-width="1.3" stroke-linejoin="round"/></svg></button>`:''}</div>`).join('')}
@@ -1049,6 +1322,114 @@ function toast(msg){
   const t=$('#toast'); t.textContent=msg; t.classList.add('on');
   clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('on'), 2600);
 }
+
+/* ---- Shopee checkout page (quick-buy path) ---- */
+const CK_PROT_FEE = 1.99;
+function ckAmounts(){
+  const a = orderAmounts();
+  const totalN = parseFloat(a.total.slice(1)) + (state.ckProt ? CK_PROT_FEE : 0);
+  const priceN = parseFloat(a.price.slice(1));
+  const orig = priceN / 0.9;
+  const savedN = (orig - priceN) + 6.50;
+  const f = n => '$' + n.toFixed(2);
+  return {...a, orig:f(orig), totalAll:f(totalN), saved:f(savedN)};
+}
+function renderCkFoot(){
+  const a = ckAmounts();
+  $('#ckFoot').innerHTML = state.ckView === 'done' ? '' : `
+    <div class="sums">
+      <div class="tot">Total <b>${esc(a.totalAll)}</b></div>
+      <div class="sv">Saved ${esc(a.saved)}</div>
+    </div>
+    <button class="po" id="ckPlace">Place Order</button>`;
+  const po = $('#ckPlace');
+  if(po) po.addEventListener('click', ()=>advance(3));
+}
+function openCheckout(mode){
+  state.ckView = mode;
+  const key = state.orderKey || 'bag3';
+  const p = PRODUCTS[key];
+  const a = ckAmounts();
+  const addr = state.addr || SAVED_ADDR;
+  const brand = p.name.split(' ')[0];
+  if(mode === 'form'){
+    $('#ckBody').innerHTML = `
+      <div class="ck-card ck-addr">
+        <span class="pin"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M8 1.5a5 5 0 0 1 5 5c0 3.6-5 8-5 8s-5-4.4-5-8a5 5 0 0 1 5-5z" fill="#EE4D2D"/><circle cx="8" cy="6.5" r="1.9" fill="#fff"/></svg></span>
+        <div class="mid">
+          <div class="nm">San Francisco <span>+1 (415) 555-6432</span></div>
+          <div class="ln">${esc(addr.address)}</div>
+          <div class="ln">JACK TATE, SAN FRANCISCO, CA, US 94105</div>
+        </div>
+        <span class="ck-chev"><svg width="8" height="13" viewBox="0 0 8 13"><path d="M1.5 1.5L6.5 6.5 1.5 11.5" stroke="#C7C7CC" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></span>
+      </div>
+      <div class="ck-card">
+        <div class="ck-shop"><span class="tag">Star</span> ${esc(brand)} Official Shop</div>
+        <div class="ck-item">
+          <div class="im">${art(key)}</div>
+          <div class="mid">
+            <div class="nm">${esc(p.name)}</div>
+            <div class="vr">${esc(p.specs[0].options[0].name)}, Dustbag</div>
+            <div class="pr">${esc(a.price)}<s>${esc(a.orig)}</s></div>
+          </div>
+          <div class="qty">x1</div>
+        </div>
+        <div class="ck-prot${state.ckProt ? ' on' : ''}" id="ckProt">
+          <span class="cb"></span>
+          <div class="mid">
+            <div class="t">Damage Protection + <span>$${CK_PROT_FEE.toFixed(2)} x1</span></div>
+            <div class="d">Get 100% compensation if your item is totally damaged or stolen within 6 months. <a>Learn more</a></div>
+          </div>
+        </div>
+      </div>
+      <div class="ck-row">Shop Voucher <span class="ph">Select or enter code <svg width="7" height="11" viewBox="0 0 7 11"><path d="M1.2 1.2L5.6 5.5 1.2 9.8" stroke="#C7C7CC" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg></span></div>
+      <div class="ck-row">Message <span class="ph">Please leave a message <svg width="7" height="11" viewBox="0 0 7 11"><path d="M1.2 1.2L5.6 5.5 1.2 9.8" stroke="#C7C7CC" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg></span></div>
+      <div class="ck-card">
+        <div class="ck-ship-h">Shipping Option <span class="va">View All <svg width="7" height="11" viewBox="0 0 7 11"><path d="M1.2 1.2L5.6 5.5 1.2 9.8" stroke="#C7C7CC" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg></span></div>
+        <div class="ck-ship on" data-ship="0">
+          <div class="d1"><span class="dt"><svg width="17" height="13" viewBox="0 0 17 13"><path d="M1 2.5h9v8H1zM10 5h3.2L16 7.8v2.7h-6z" fill="none" stroke="#26AA5E" stroke-width="1.3"/><circle cx="4.5" cy="11" r="1.4" fill="#26AA5E"/><circle cx="13" cy="11" r="1.4" fill="#26AA5E"/></svg> Aug 23</span><span class="pz"><s>$6.50</s> $0</span></div>
+          <div class="nm2">Standard</div>
+          <div class="fs">Free shipping applied</div>
+        </div>
+        <div class="ck-ship" data-ship="1">
+          <div class="d1"><span class="dt" style="color:var(--ink)">Aug 23 - 25</span><span class="pz"><s>$3.50</s> $0</span></div>
+          <div class="nm2">Economy</div>
+          <div class="fs">Free shipping applied</div>
+        </div>
+      </div>
+      <div class="ck-late">Get up to $10.00 if order arrives late ⓘ</div>`;
+  } else {
+    $('#ckBody').innerHTML = `
+      <div class="ck-done">
+        <div class="ok"><svg width="34" height="34" viewBox="0 0 34 34"><path d="M8 17.5l6.5 6.5L26 10.5" stroke="#fff" stroke-width="3.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="h">Payment successful!</div>
+        <div class="p">${esc(a.totalAll)} paid with Shopee Pay.<br>We’ve notified the seller to ship your order.</div>
+        <div class="o">Order #25082300427 · arriving Aug 23</div>
+        <button class="done-btn" id="ckDone">Done</button>
+      </div>`;
+    const d = $('#ckDone');
+    if(d) d.addEventListener('click', ()=>{ closeCheckout(); closePDP(); });
+  }
+  renderCkFoot();
+  document.querySelector('.ck-scroll').scrollTop = 0;
+  $('#checkout').classList.add('on');
+}
+function closeCheckout(){ $('#checkout').classList.remove('on'); }
+$('#ckBack').addEventListener('click', ()=>{
+  closeCheckout();
+  if(state.userType === 'qb' && state.step === 2){ state.step = 1; highlightStep(); }
+});
+$('#ckBody').addEventListener('click', e=>{
+  const prot = e.target.closest('#ckProt');
+  if(prot){ state.ckProt = !state.ckProt; prot.classList.toggle('on', state.ckProt); renderCkFoot(); return; }
+  const ship = e.target.closest('.ck-ship');
+  if(ship){
+    document.querySelectorAll('.ck-ship').forEach(n=>n.classList.remove('on'));
+    ship.classList.add('on');
+    const dt = ship.querySelector('.dt'); document.querySelectorAll('.ck-ship .dt').forEach(x=>x.style.color='var(--ink)');
+    if(dt) dt.style.color = '#26AA5E';
+  }
+});
 
 /* ---- Payment methods: brand logos (real paths via simple-icons), saved
    instruments, and the Stripe-style bottom sheet ---- */
@@ -1400,6 +1781,40 @@ function faceID(done){
   }, 1450));
 }
 
+/* ---- order validity countdown: 30 minutes per order card ---- */
+const ORDER_TTL_MS = 30 * 60 * 1000;
+function stopOrderCountdown(){
+  if(state.orderTimer){ clearInterval(state.orderTimer); state.orderTimer = null; }
+}
+function startOrderCountdown(wrap){
+  stopOrderCountdown();
+  state.orderDeadline = Date.now() + ORDER_TTL_MS;
+  const el = wrap.querySelector('.order-timer');
+  if(!el) return;
+  const tick = ()=>{
+    if(state.step > 4){ stopOrderCountdown(); el.classList.add('hidden'); return; }  // paid — timer irrelevant
+    const left = state.orderDeadline - Date.now();
+    if(left <= 0){ expireOrder(wrap); return; }
+    const m = Math.floor(left / 60000), sec = Math.floor((left % 60000) / 1000);
+    el.textContent = `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+  };
+  tick();
+  state.orderTimer = setInterval(tick, 1000);
+}
+function expireOrder(wrap){
+  stopOrderCountdown();
+  wrap.classList.add('stale');
+  const el = wrap.querySelector('.order-timer');
+  if(el){ el.textContent = 'Expired'; el.classList.add('expired'); }
+  aiMsg([{t:'p', text:'⏰ This order has expired — orders stay valid for 30 minutes. Want me to create a fresh one?'}]);
+  after(()=>{
+    followupMsg([{label:'Create a new order', onTap:()=>{
+      aiMsg([{t:'p', text:'Here’s a fresh order — valid for another 30 minutes:'}]);
+      after(()=>issueOrderCard(), 500);
+    }}]);
+  }, 600);
+}
+
 /* ---- order-card editing (address via chat, payment via Shopee web pay) ---- */
 function issueOrderCard(){
   if(window.__orderWrap) window.__orderWrap.classList.add('stale');
@@ -1424,20 +1839,19 @@ function issueOrderCard(){
   });
   window.__orderWrap = wrap;
   window.__orderBtn = btn;
+  startOrderCountdown(wrap);
 }
 function editAddress(){
   if(state.addrEditing) return;                        // one prompt at a time
   state.addrEditing = true;
   // offer whichever saved address differs from the current one
   const target = (state.addr === NEW_ADDR) ? SAVED_ADDR : NEW_ADDR;
-  aiMsg([{t:'p', text:'Sure — do you want to change the delivery address for this order? Send me the new one.'}]);
-  setPending(target.full, ()=>{
+  aiMsg([{t:'p', text:'Sure — send me the new delivery address. Remember to include: full name, street address, city, state/region and phone number.'}]);
+  collectAddress(target, ()=>{
     state.addrEditing = false;
     if(state.step > 4) return;                         // paid meanwhile — discard the edit
-    state.addr = target;
-    userMsg(target.full);
     after(()=>{
-      aiMsg([{t:'p', text:'✅ Address updated! Here’s the revised order:'}]);
+      aiMsg([{t:'p', text:'✅ All details received — address updated! Here’s the revised order:'}]);
       after(()=>issueOrderCard(), 500);
     }, 600);
   });
@@ -1478,6 +1892,35 @@ function buildGallery(key){
     $('#galleryCount').textContent=(i+1)+'/15';
   };
 }
+const STORE_PATHS = {"walmart": "M21.41818 9.10219c-.22048 0-.39583.12308-.39583.27297l.13393 1.51627c.01478.09132.12669.16185.26197.16185.13555-.00017.24705-.07065.26214-.16185l.13424-1.51627c0-.1499-.17555-.27297-.39645-.27297zM-.00002 10.3184s.59713 2.44699.69242 2.84417c.11123.46362.3117.63419.88954.51913l.37291-1.51718c.0945-.37683.1579-.64553.21866-1.02883h.01065c.04269.3871.10354.65314.18131 1.03017 0 0 .15176.68869.22949 1.05042.07795.36163.29482.5895.86083.46542l.88851-3.3633h-.71735l-.30339 1.45411c-.08155.42325-.15544.75396-.21251 1.14117h-.01022c-.05189-.38347-.11777-.70096-.20072-1.11331l-.31586-1.48197h-.7474l-.3378 1.44462c-.09569.43899-.18528.79337-.2422 1.16745h-.01023c-.05832-.35224-.13599-.7977-.22006-1.22261 0 0-.20074-1.03328-.27115-1.38946zm6.83845 0v3.3633h.68299v-3.3633zm9.6188 0v2.48118c0 .34202.0644.5817.20213.72811.12033.12806.31854.21094.55604.21094.20193 0 .40062-.0383.49426-.07317l-.0088-.53367c-.06968.01711-.1498.03078-.25942.03078-.23265 0-.31068-.149-.31068-.45611v-.94921h.59479v-.64351h-.59481v-.79533zm2.77885 0c-.11446.0027-.24452.08936-.32723.23277-.11062.19096-.09105.40434.03838.47923l1.3799.64254c.0862.03205.20323-.02912.27103-.14597.06814-.11745.0629-.2496-.0088-.3082l-1.24635-.8741c-.03237-.01874-.06877-.02717-.10693-.02627zm4.36427 0c-.03815-.0009-.0745.0075-.1068.02628l-1.2464.8741c-.07112.05846-.07653.1901-.0092.30734.00006.00013.00015.00023.00025.00036.00009.00016.00015.00033.00024.00049.06804.11686.18472.17803.27091.14598l1.38004-.64254c.12997-.0749.14861-.28827.03874-.47923-.08309-.1434-.21333-.23006-.32777-.23277zM5.312 11.0981c-.42444 0-.76136.11916-.94501.22529l.13442.46019c.16808-.10595.43566-.19366.68907-.19366.41954-.0011.48817.23728.48817.39012v.03613c-.9142-.0014-1.49164.31493-1.49164.9598 0 .3937.29399.76266.80512.76266.31466 0 .57778-.12554.73548-.32662h.01545s.10445.4367.67982.26969c-.03022-.18174-.04002-.37546-.04002-.60884v-.89849c0-.57263-.24452-1.07627-1.07086-1.07627zm4.08552 0c-.42739 0-.61944.2166-.7359.40034h-.01016v-.34335h-.65173v2.5266h.68658V12.2c0-.06945.00799-.1429.03223-.2068.05689-.1492.19565-.3237.41725-.3237.27704 0 .40667.2342.40667.57222v1.44h.68585v-1.4996c0-.06636.0091-.14622.02859-.20486.05639-.16969.20602-.30776.41201-.30776.28086 0 .41567.23012.41567.62788v1.38434h.68633v-1.48805c0-.78478-.39845-1.09555-.8483-1.09555-.19922 0-.35646.04996-.49863.13722-.1195.07334-.22655.17753-.32006.3147h-.0101c-.10853-.27228-.36375-.45192-.6963-.45192zm3.7702 0c-.42435 0-.76113.11916-.94495.22529l.13454.46019c.16792-.10595.43572-.19366.689-.19366.41926-.0011.48806.23728.48806.39012v.03613c-.91407-.0014-1.49164.31494-1.49164.9598 0 .3937.29418.76266.8056.76266.31441 0 .57759-.12554.735-.32662h.01557s.10437.4367.67982.26969c-.03027-.18174-.03996-.37546-.03996-.60884v-.89849c0-.57263-.24458-1.07627-1.07104-1.07627zm2.85129 0c-.26292 0-.56205.1697-.68761.53354h-.0191v-.47655h-.6181v2.5266h.70453V12.388c0-.06985.0042-.1307.01527-.1865.0521-.27102.25945-.44425.55696-.44425.08167 0 .1401.0088.20333.018v-.66151c-.05302-.0107-.0893-.01563-.15528-.01563zm4.35946 1.22067c-.01785-.00025-.03513.0026-.05134.0087l-1.3799.6418c-.12943.07519-.149.28868-.03838.47984.11028.1906.30469.28118.43415.20644l1.24634-.87349c.0717-.05929.07696-.19127.0088-.30862l.0006.00025c-.05507-.09558-.14292-.15388-.22027-.15492zm2.07955 0c-.07727.001-.1649.05934-.22012.15491l.00049-.00025c-.06781.11735-.06254.24934.0088.30862l1.2464.87349c.12921.07474.3238-.01584.43458-.20644.10986-.19116.09122-.40466-.03875-.47983l-1.38012-.64181c-.0162-.0061-.03344-.0089-.05128-.0087zm-16.75741.14518v.31519c0 .0466-.00406.09467-.01697.13673-.05286.17506-.23415.32303-.46086.32303-.18901 0-.33916-.1073-.33916-.33422 0-.34707.38204-.443.81699-.44073zm7.85577 0v.31519c0 .0466-.0041.09467-.0169.13673-.05287.17506-.23421.32303-.46093.32303-.18905 0-.3392-.1073-.3392-.33422 0-.34707.38209-.443.81703-.44073zm7.86138.48324c-.13506.00016-.24672.07024-.26148.16137l-.13393 1.5162c0 .15015.17535.27304.39583.27304.2209 0 .39645-.12289.39645-.27303l-.13424-1.51621c-.01509-.09113-.12659-.1612-.26214-.16137z", "amazon": "M.045 18.02c.072-.116.187-.124.348-.022 3.636 2.11 7.594 3.166 11.87 3.166 2.852 0 5.668-.533 8.447-1.595l.315-.14c.138-.06.234-.1.293-.13.226-.088.39-.046.525.13.12.174.09.336-.12.48-.256.19-.6.41-1.006.654-1.244.743-2.64 1.316-4.185 1.726a17.617 17.617 0 01-10.951-.577 17.88 17.88 0 01-5.43-3.35c-.1-.074-.151-.15-.151-.22 0-.047.021-.09.051-.13zm6.565-6.218c0-1.005.247-1.863.743-2.577.495-.71 1.17-1.25 2.04-1.615.796-.335 1.756-.575 2.912-.72.39-.046 1.033-.103 1.92-.174v-.37c0-.93-.105-1.558-.3-1.875-.302-.43-.78-.65-1.44-.65h-.182c-.48.046-.896.196-1.246.46-.35.27-.575.63-.675 1.096-.06.3-.206.465-.435.51l-2.52-.315c-.248-.06-.372-.18-.372-.39 0-.046.007-.09.022-.15.247-1.29.855-2.25 1.82-2.88.976-.616 2.1-.975 3.39-1.05h.54c1.65 0 2.957.434 3.888 1.29.135.15.27.3.405.48.12.165.224.314.283.45.075.134.15.33.195.57.06.254.105.42.135.51.03.104.062.3.076.615.01.313.02.493.02.553v5.28c0 .376.06.72.165 1.036.105.313.21.54.315.674l.51.674c.09.136.136.256.136.36 0 .12-.06.226-.18.314-1.2 1.05-1.86 1.62-1.963 1.71-.165.135-.375.15-.63.045a6.062 6.062 0 01-.526-.496l-.31-.347a9.391 9.391 0 01-.317-.42l-.3-.435c-.81.886-1.603 1.44-2.4 1.665-.494.15-1.093.227-1.83.227-1.11 0-2.04-.343-2.76-1.034-.72-.69-1.08-1.665-1.08-2.94l-.05-.076zm3.753-.438c0 .566.14 1.02.425 1.364.285.34.675.512 1.155.512.045 0 .106-.007.195-.02.09-.016.134-.023.166-.023.614-.16 1.08-.553 1.424-1.178.165-.28.285-.58.36-.91.09-.32.12-.59.135-.8.015-.195.015-.54.015-1.005v-.54c-.84 0-1.484.06-1.92.18-1.275.36-1.92 1.17-1.92 2.43l-.035-.02zm9.162 7.027c.03-.06.075-.11.132-.17.362-.243.714-.41 1.05-.5a8.094 8.094 0 011.612-.24c.14-.012.28 0 .41.03.65.06 1.05.168 1.172.33.063.09.099.228.099.39v.15c0 .51-.149 1.11-.424 1.8-.278.69-.664 1.248-1.156 1.68-.073.06-.14.09-.197.09-.03 0-.06 0-.09-.012-.09-.044-.107-.12-.064-.24.54-1.26.806-2.143.806-2.64 0-.15-.03-.27-.087-.344-.145-.166-.55-.257-1.224-.257-.243 0-.533.016-.87.046-.363.045-.7.09-1 .135-.09 0-.148-.014-.18-.044-.03-.03-.036-.047-.02-.077 0-.017.006-.03.02-.063v-.06z", "ebay": "M6.056 12.132v-4.92h1.2v3.026c.59-.703 1.402-.906 2.202-.906 1.34 0 2.828.904 2.828 2.855 0 .233-.015.457-.06.668.24-.953 1.274-1.305 2.896-1.344.51-.018 1.095-.018 1.56-.018v-.135c0-.885-.556-1.244-1.53-1.244-.72 0-1.245.3-1.305.81h-1.275c.136-1.29 1.5-1.62 2.686-1.62 1.064 0 1.995.27 2.415 1.02l-.436-.84h1.41l2.055 4.125 2.055-4.126H24l-3.72 7.305h-1.346l1.07-2.04-2.33-4.38c.13.255.2.555.2.93v2.46c0 .346.01.69.04 1.005H16.8a6.543 6.543 0 01-.046-.765c-.603.734-1.32.96-2.32.96-1.48 0-2.272-.78-2.272-1.695 0-.15.015-.284.037-.405-.3 1.246-1.36 2.086-2.767 2.086-.87 0-1.694-.315-2.2-.93 0 .24-.015.494-.04.734h-1.18c.02-.39.04-.855.04-1.245v-1.05h-4.83c.065 1.095.818 1.74 1.853 1.74.718 0 1.355-.3 1.568-.93h1.24c-.24 1.29-1.61 1.725-2.79 1.725C.95 15.009 0 13.822 0 12.232c0-1.754.982-2.91 3.116-2.91 1.688 0 2.93.886 2.94 2.806v.005zm9.137.183c-1.095.034-1.77.233-1.77.95 0 .465.36.97 1.305.97 1.26 0 1.935-.69 1.935-1.814v-.13c-.45 0-.99.006-1.484.022h.012zm-6.06 1.875c1.11 0 1.876-.806 1.876-2.02s-.768-2.02-1.893-2.02c-1.11 0-1.89.806-1.89 2.02s.765 2.02 1.875 2.02h.03zm-4.35-2.514c-.044-1.125-.854-1.546-1.725-1.546-.944 0-1.694.474-1.815 1.546z"};
+const STORE_META = {
+  shopee:{name:'Shopee', color:'#EE4D2D'},
+  walmart:{name:'Walmart', color:'#0071CE'},
+  amazon:{name:'Amazon', color:'#FF9900'},
+  ebay:{name:'Ebay', color:'#E53238'}
+};
+function storeLogo(id){
+  const path = id==='shopee' ? BRAND.shopee : STORE_PATHS[id];
+  return `<svg width="22" height="22" viewBox="0 0 24 24"><path d="${path}" fill="${STORE_META[id].color}"/></svg>`;
+}
+/* comparison rows per product: Shopee (main channel) is cheapest with Buy;
+   act:'buy' behaves like the blue CTA, act:'view' opens the original site */
+const AMZ_REF_URL = 'https://www.amazon.com/KKXIU-Shoulder-Handbags-Underarm-Removable/dp/B0DKMQ7958';
+function supplierRows(p){
+  const base = parseFloat(p.price.replace('$',''));
+  const rows = [
+    {store:'shopee',  d:0,   rating:'4.8', act:'buy'},
+    {store:'walmart', d:1.5, rating:'4.5', act:'buy'},
+    {store:'amazon',  d:3,   rating:'4.5', act:'view'},
+    {store:'ebay',    d:5.5, rating:'4.3', act:'view'},
+    {store:'amazon',  d:4,   rating:'4.4', act:'view'}
+  ];
+  return rows.map(r=>({...r, price:'$'+(base+r.d).toFixed(2)}));
+}
+const REVIEW = {
+  name:'Maya L', stars:'★★★★☆', source:'Walmart',
+  text:'Great design and the color looks even better in person than it does in the photos. The bag has a clean, stylish look that’s easy to match with both casual and office outfits…'
+};
 function openPDP(key){
   key = key || currentPdpKey || 'bag1';
   currentPdpKey = key;
@@ -1486,22 +1929,73 @@ function openPDP(key){
   $('#pdpTags').textContent = p.tags + ' · Free Shipping';
   $('#pdpName').textContent = p.name;
   $('#pdpWhy').innerHTML = p.why.map(w=>`<li>${esc(w)}</li>`).join('');
-  $('#swatches').innerHTML = p.colors.map((c,i)=>
-    `<div class="sw${i===0?' on':''}${c.off?' off':''}" data-c="${esc(c.name)}">${esc(c.name)}</div>`).join('');
-  $('#specColor').textContent = p.colors[0].name;
+  // spec groups (color, size/strap …)
+  $('#pdpSpecs').innerHTML = p.specs.map((g,gi)=>`
+    <div class="spec-label">${esc(g.label)}: <span class="spec-val" data-g="${gi}">${esc(g.options[0].name)}</span>
+      <svg width="7" height="11" viewBox="0 0 7 11"><path d="M1.2 1.2L5.6 5.5 1.2 9.8" stroke="#8E8E93" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>
+    </div>
+    <div class="swatches" data-g="${gi}">${g.options.map((o,i)=>
+      `<div class="sw${i===0?' on':''}${o.off?' off':''}" data-c="${esc(o.name)}">${esc(o.name)}</div>`).join('')}</div>`).join('');
+  // supplier comparison — inside Shopee (assistant / quick-buy shells) only
+  // the Shopee offer is listed; third-party stores appear in the migoo shell
+  const inShopee = state.userType === 'asst' || state.userType === 'qb';
+  const supRows = supplierRows(p).filter(r => !inShopee || r.store === 'shopee');
+  $('#supList').innerHTML = supRows.map(r=>`
+    <div class="sup-row">
+      <div class="sup-logo">${storeLogo(r.store)}</div>
+      <div class="sup-mid">
+        <div class="sup-price">${esc(r.price)}</div>
+        <div class="sup-sub"><span class="star">★</span> ${esc(r.rating)} <span class="bar">|</span> <span class="lnk" data-view="1">View in ${esc(STORE_META[r.store].name)} ↗</span></div>
+      </div>
+      <button class="sup-btn" data-act="${r.act}" data-store="${esc(STORE_META[r.store].name)}" data-price="${(parseFloat(r.price.slice(1))).toFixed(2)}">${r.act==='buy'?'Buy':'View'}</button>
+    </div>`).join('');
+  $('#supList').classList.add('collapsed');
+  $('#supToggle').textContent = 'Show More ⌄';
+  $('#supToggle').style.display = supRows.length > 3 ? '' : 'none';
+  // review block
+  $('#pdpReview').innerHTML = `
+    <div class="rev-name">${esc(REVIEW.name)}</div>
+    <div class="rev-meta"><span class="stars">${REVIEW.stars}</span><span>${esc(REVIEW.source)}</span></div>
+    <div class="rev-text">${esc(REVIEW.text)}</div>
+    <div class="rev-media">
+      <div class="rm">${art(key,0)}<div class="play"><i><svg width="12" height="12" viewBox="0 0 12 12"><path d="M3.5 2l6.5 4-6.5 4z" fill="#fff"/></svg></i></div><div class="dur">00:15</div></div>
+      <div class="rm">${art(key,1)}</div>
+      <div class="rm">${art(key,2)}<div class="more">+2</div></div>
+    </div>`;
   $('#pdpBuy').textContent = `Buy at Shopee · ${p.price}`;
   buildGallery(key);
+  const gp = document.querySelector('.gallery .variant-pill');
+  if(gp) gp.textContent = p.specs[0].options[0].name;
   $('#pdpScroll').scrollTop=0;
   $('#pdp').classList.add('on');
 }
 function closePDP(){ $('#pdp').classList.remove('on'); }
 
 $('#pdpClose').addEventListener('click', closePDP);
-$('#swatches').addEventListener('click', e=>{
-  const sw=e.target.closest('.sw'); if(!sw || sw.classList.contains('off')) return;
-  $('#swatches').querySelectorAll('.sw').forEach(n=>n.classList.remove('on'));
+$('#pdpSpecs').addEventListener('click', e=>{
+  const sw = e.target.closest('.sw'); if(!sw || sw.classList.contains('off')) return;
+  const group = sw.closest('.swatches');
+  group.querySelectorAll('.sw').forEach(n=>n.classList.remove('on'));
   sw.classList.add('on');
-  $('#specColor').textContent = sw.dataset.c;
+  const gi = group.dataset.g;
+  const val = document.querySelector(`.spec-val[data-g="${gi}"]`);
+  if(val) val.textContent = sw.dataset.c;
+  if(gi === '0'){
+    const gp = document.querySelector('.gallery .variant-pill');
+    if(gp) gp.textContent = sw.dataset.c;
+  }
+});
+/* supplier list: Buy = same as the blue CTA; View = open the original site */
+$('#supList').addEventListener('click', e=>{
+  const viewLnk = e.target.closest('[data-view]');
+  const btn = e.target.closest('.sup-btn');
+  if(viewLnk || (btn && btn.dataset.act === 'view')){ window.open(AMZ_REF_URL, '_blank'); return; }
+  if(btn && btn.dataset.act === 'buy') pdpBuyAction(btn.dataset.store, parseFloat(btn.dataset.price));
+});
+$('#supToggle').addEventListener('click', ()=>{
+  const list = $('#supList');
+  const collapsed = list.classList.toggle('collapsed');
+  $('#supToggle').textContent = collapsed ? 'Show More ⌄' : 'Show Less ⌃';
 });
 
 /* =========================================================================
@@ -1510,7 +2004,9 @@ $('#swatches').addEventListener('click', e=>{
 let state = { step:0, timers:[], entry:null, orderKey:'bag3', addr:null,
               pay:{id:'sp-new', logo:'shopeepay', label:'ShopeePay', payName:'Shopee Pay'},
               savedSel:'sp6789', psSel:'saved', psView:'main',
-              spEnrolled:false, pinMode:null, pinBuf:'', userType:'new' };
+              spEnrolled:false, pinMode:null, pinBuf:'', userType:'new', addrSent:false,
+              orderTimer:null, orderDeadline:0, orderStore:'Shopee', orderPrice:null,
+              ckProt:false, ckView:'form' };
 /* content delay — when jumping steps it fires immediately so the step's
    full content is on screen */
 function after(fn, ms){
@@ -1539,9 +2035,9 @@ const S_LIST = { label:'Product list reply', run(){
       userMsg('Can you recommend a bag for work? Something elegant, under $60');
       aiMsg([
         {t:'p', text:'Based on the bags you’ve saved, here are three under $60 that reviewers love for both work and weekends.', lede:true},
-        {t:'product', key:'bag1', onTap:()=>openPDP('bag1')},
-        {t:'product', key:'bag2', onTap:()=>openPDP('bag2')},
-        {t:'product', key:'bag3', onTap:()=>openPDP('bag3')},
+        {t:'product', key:'bag1', onTap:()=>{ openPDP('bag1'); if(state.userType==='qb' && state.step<1){ state.step=1; highlightStep(); } }},
+        {t:'product', key:'bag2', onTap:()=>{ openPDP('bag2'); if(state.userType==='qb' && state.step<1){ state.step=1; highlightStep(); } }},
+        {t:'product', key:'bag3', onTap:()=>{ openPDP('bag3'); if(state.userType==='qb' && state.step<1){ state.step=1; highlightStep(); } }},
         {t:'p', text:'All three ship from authenticated sellers. Tap one to see details, or just tell me which one you want.'}
       ]);
       setPending('Buy the third bag for me', ()=>{ state.entry='typed'; state.orderKey='bag3'; next(); });
@@ -1549,18 +2045,18 @@ const S_LIST = { label:'Product list reply', run(){
 const S_REQ = { label:'Order request', run(){
       closePDP();
       setPending(null);
-      if(state.entry==='pdp') userProductMsg(state.orderKey, 'Buy for me from Shopee');
+      if(state.entry==='pdp') userProductMsg(state.orderKey, `Buy for me from ${state.orderStore}`);
       else userMsg('Buy the third bag for me');
       then(()=>next(), 700);
   }};
 const S_ADDR = { label:'Delivery info · quick fill', run(){
       after(()=>{
-        aiMsg([{t:'p', text:'Got it. I need your delivery information to create the order. You can use your saved address, or send me a new one. For the name, I’ll use “Jack Tate.”'}]);
+        aiMsg([{t:'p', text:'Got it. I need your delivery information to create the order. Please include: full name, street address, city, state/region and phone number — all fields are required. Use your saved address, or send me a new one.'}]);
         after(()=>{
           followupMsg([
             {label:'Use saved address · 535 Mission St, Floor 14…', onTap:()=>{ state.addr=SAVED_ADDR; next(); }},
             {label:'Ship to a different address', onTap:()=>{
-              setPending(NEW_ADDR.full, ()=>{ state.addr=NEW_ADDR; next(); });
+              collectAddress(NEW_ADDR, ()=>{ state.addrSent = true; next(); });
             }}
           ]);
         }, 800);
@@ -1570,7 +2066,8 @@ const S_CREATE = { label:'Creating order', run(){
       removeFollowups();
       setPending(null);
       if(!state.addr) state.addr = SAVED_ADDR;
-      userMsg(state.addr.full);
+      if(!state.addrSent) userMsg(state.addr.full);
+      state.addrSent = false;
       after(()=>{
         aiMsg([{t:'p', text:'Great — creating the order for you now, this may take a moment.'}]);
         const w = workingMsg();
@@ -1590,8 +2087,10 @@ const S_PAID = { label:'Payment success (chat)', run(){
       state.addrEditing = false;
       const b = window.__orderBtn;
       if(b){ b.disabled = true; b.textContent = 'Payment successful'; }
-      const p = PRODUCTS[state.orderKey];
-      aiMsg([{t:'p', text:`✅ Payment successful! ${p.total} paid with ${state.pay.payName}.`}]);
+      stopOrderCountdown();
+      const tEl = window.__orderWrap && window.__orderWrap.querySelector('.order-timer');
+      if(tEl) tEl.classList.add('hidden');
+      aiMsg([{t:'p', text:`✅ Payment successful! ${orderAmounts().total} paid with ${state.pay.payName}.`}]);
       then(()=>showMail(), 600);
       then(()=>hideMail(), 3100);
       then(()=>{
@@ -1639,13 +2138,28 @@ const S_ENROLL = { label:'Enroll Face ID', run(){
       followupMsg([{label:'Maybe later', onTap:()=>next()}]);
     }, 600);
 }};
+const S_PDP = { label:'Product detail page', run(){
+    openPDP(state.orderKey || 'bag3');
+}};
+const S_CHECKOUT = { label:'Shopee checkout', run(){
+    openPDP(state.orderKey || 'bag3');
+    openCheckout('form');
+    then(()=>$('#ckToast').classList.add('on'), 800);
+    then(()=>$('#ckToast').classList.remove('on'), 2800);
+}};
+const S_QDONE = { label:'Payment success (page)', run(){
+    openPDP(state.orderKey || 'bag3');
+    openCheckout('done');
+}};
 /* two experience paths: a first-time ShopeePay user pays with the PIN
    checkout and is then offered Face ID; a returning user pays via Face ID */
 const FLOWS = {
   new:   [S_LIST, S_REQ, S_ADDR, S_CREATE, S_CARD, S_PAID, S_ENROLL, S_RECAP, S_MEMORY],
   ret:   [S_LIST, S_REQ, S_ADDR, S_CREATE, S_CARD, S_PAID, S_RECAP, S_MEMORY],
   nofid: [S_LIST, S_REQ, S_ADDR, S_CREATE, S_CARD, S_PAID, S_RECAP, S_MEMORY],
-  safe:  [S_LIST, S_REQ, S_ADDR, S_CREATE, S_CARD, S_PAID, S_RECAP, S_MEMORY]
+  safe:  [S_LIST, S_REQ, S_ADDR, S_CREATE, S_CARD, S_PAID, S_RECAP, S_MEMORY],
+  asst:  [S_LIST, S_REQ, S_ADDR, S_CREATE, S_CARD, S_PAID, S_RECAP, S_MEMORY],
+  qb:    [S_LIST, S_PDP, S_CHECKOUT, S_QDONE]
 };
 function curFlow(){ return FLOWS[state.userType]; }
 
@@ -1653,7 +2167,9 @@ const NOTES = {
   new:'New user: tapping pay asks for ShopeePay details first (highlighted row → empty state → set-up form). After Save: verify phone (code) → set a 6-digit PIN → confirm payment with it. Afterwards Migoo offers Face ID enrollment; once enrolled, future payments use Face ID.',
   ret:'Returning user: Face ID is already enrolled, so "Pay with Shopee Pay" verifies with Face ID and confirms right in the chat. The payment pencil opens the Stripe-style sheet; the mail banner swipes up to dismiss.',
   nofid:'No Face ID on this device: paying verifies with the ShopeePay PIN and then a verification code. Everything after payment is unchanged (recap → Memory).',
-  safe:'No Face ID, but a trusted environment (recognized device & network): entering the ShopeePay PIN completes the payment directly — no verification code. Everything after payment is unchanged.'
+  safe:'No Face ID, but a trusted environment (recognized device & network): entering the ShopeePay PIN completes the payment directly — no verification code. Everything after payment is unchanged.',
+  asst:'Assistant shell: the same returning-user flow (Face ID pay) inside migoo’s Assistant tab — For You / Assistant tabs on top, quick-action chips above the composer, five-tab bottom bar.',
+  qb:'Quick buy (non-conversational, Assistant shell): tap a product card → PDP → "Buy at Shopee" opens the Shopee Checkout page (address, shop, Damage Protection, voucher, shipping options) → Place Order pays instantly and shows the success page.'
 };
 
 function next(){
@@ -1666,6 +2182,7 @@ function next(){
 
 function clearShell(){
   clearTimers();
+  stopOrderCountdown();
   thread.innerHTML=''; setPending(null);
   $('#taskBadge').classList.remove('on');
   closePaySheet();
@@ -1679,13 +2196,18 @@ function clearShell(){
   window.__orderWrap = null;
   state.entry = null;
   state.orderKey = 'bag3';
+  state.orderStore = 'Shopee'; state.orderPrice = null;
   state.addr = null;
   state.pay = (state.userType === 'new')
     ? {id:'sp-new',  logo:'shopeepay', label:'ShopeePay',  payName:'Shopee Pay'}
     : {id:'sp6789', logo:'shopeepay', label:'···· 6789', payName:'Shopee Pay'};
   state.savedSel = 'sp6789'; state.psSel = 'saved';
   state.addrEditing = false;
-  state.spEnrolled = (state.userType === 'ret'); state.pinMode = null; state.pinBuf = '';
+  state.addrSent = false;
+  state.spEnrolled = (state.userType === 'ret' || state.userType === 'asst');
+  state.ckProt = false; state.ckView = 'form';
+  closeCheckout();
+  document.querySelector('.phone').classList.toggle('assistant', state.userType === 'asst' || state.userType === 'qb'); state.pinMode = null; state.pinBuf = '';
   PAY_METHODS = (state.userType === 'new') ? [] : INIT_METHODS.map(m=>({...m}));
 }
 
@@ -1729,22 +2251,38 @@ document.querySelectorAll('.devbar .seg button').forEach(b=>{
 });
 $('#restart').addEventListener('click', reset);
 $('#openPdpBtn').addEventListener('click', ()=>openPDP(currentPdpKey || 'bag3'));
+$('#expireBtn').addEventListener('click', ()=>{
+  if(state.orderTimer) state.orderDeadline = Date.now() + 5000;
+  else toast('No active order to expire — jump to the order card first.');
+});
 
-/* PDP buy button is entry point a — only from step 0 */
-$('#pdpBuy').addEventListener('click', ()=>{
+/* PDP buy — entry point a; shared by the blue CTA and supplier Buy buttons */
+function pdpBuyAction(store, price){
+  if(state.userType === 'qb'){
+    if(state.step >= 3) return;                    // already paid on this path
+    state.orderKey = currentPdpKey || 'bag3';
+    state.orderStore = store || 'Shopee';
+    state.orderPrice = (price != null) ? price : null;
+    advance(2);                                    // → Shopee checkout page
+    return;
+  }
   if(state.step < 1){
     state.entry = 'pdp';
     state.orderKey = currentPdpKey || 'bag1';
+    state.orderStore = store || 'Shopee';
+    state.orderPrice = (price != null) ? price : null;
     next();                                   // → step 1 (order request)
   } else {
     closePDP();
     toast('You’ve already started a purchase for this item.');
   }
-});
+}
+$('#pdpBuy').addEventListener('click', ()=>pdpBuyAction());   // no args: Shopee at base price
 
 /* boot */
 $('#tabLogo').innerHTML = migooLogo(27, 'tl');
 $('#askLogo').innerHTML = migooLogo(26, 'al');
+$('#aTabMigoo').insertAdjacentHTML('afterbegin', migooLogo(24, 'at'));
 buildStepList();
 reset();
 </script>
