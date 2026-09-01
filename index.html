@@ -759,6 +759,7 @@ body{
   border:1.4px solid #EE4D2D; background:#FFF7F4; border-radius:10px;
   padding:12px 10px; margin:4px 0 6px; border-bottom:1.4px solid #EE4D2D;
 }
+.ps-row.setup.stripe{ border-color:#635BFF; background:#F7F6FF; border-bottom-color:#635BFF }
 .ps-empty{text-align:center; padding:24px 12px 10px}
 .ps-empty .ic{display:flex; justify-content:center; margin-bottom:12px}
 .ps-empty .t{font-size:15.5px; font-weight:600; color:var(--ink)}
@@ -1838,6 +1839,12 @@ function renderPS(view){
         <div class="ps-logo">${payLogo(saved.logo)}</div>
         <div class="ps-name">${esc(saved.label)}</div>
         <div class="ps-more" data-act="more">View more ›</div>
+      </div>` : standalone() ? `
+      <div class="ps-row setup stripe" data-act="sel-main" data-id="newcard">
+        <div class="ps-radio${state.psSel==='saved'?' on':''}"></div>
+        <div class="ps-logo">${payLogo('newcard')}</div>
+        <div class="ps-name">Card<div class="ps-sub" style="color:#635BFF">Set up required — add your card details</div></div>
+        <div class="ps-more" data-act="more">View more ›</div>
       </div>` : `
       <div class="ps-row setup" data-act="more">
         <div class="ps-radio${state.psSel==='saved'?' on':''}"></div>
@@ -1864,13 +1871,19 @@ function renderPS(view){
         ${empty ? '' : '<span class="ps-note">Powered by Stripe</span><span class="ps-editlink" data-act="edit">Edit</span>'}
       </div>
       <div class="ps-title big">Select payment method</div>
-      ${empty ? `
+      ${empty ? (standalone() ? `
+      <div class="ps-empty">
+        <div class="ic">${payLogo('newcard', 56, 40)}</div>
+        <div class="t">No card linked yet</div>
+        <div class="s">Add your card details so Migoo can pay for you.</div>
+      </div>
+      <button class="ps-cta" data-act="add-card-form">Add card</button>` : `
       <div class="ps-empty">
         <div class="ic">${payLogo('shopeepay', 56, 40)}</div>
         <div class="t">No payment account linked yet</div>
         <div class="s">Add your ShopeePay details so Migoo can pay for you.</div>
       </div>
-      <button class="ps-cta" data-act="add-sp">Add ShopeePay account</button>` : PAY_METHODS.map(m=>`
+      <button class="ps-cta" data-act="add-sp">Add ShopeePay account</button>`) : PAY_METHODS.map(m=>`
       <div class="ps-card${m.id===state.savedSel?' on':''}" data-act="pick-card" data-id="${m.id}">
         <div class="ps-logo">${payLogo(m.logo)}</div><span>${esc(m.label)}</span>
       </div>`).join('')}`;
@@ -1984,6 +1997,7 @@ $('#psBody').addEventListener('click', e=>{
     renderPS('cards');
   }
   else if(act==='add-sp'){ renderPS('setupform'); }
+  else if(act==='add-card-form'){ renderPS('newcard'); }
   else if(act==='save-setup'){
     // account bound: register the instrument, then verify phone → set PIN → pay
     if(!PAY_METHODS.some(m=>m.id==='sp6789')) PAY_METHODS.unshift({...INIT_METHODS[0]});
