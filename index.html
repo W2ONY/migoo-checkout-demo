@@ -1220,12 +1220,20 @@ body{
 
 <!-- ============ dev bar ============ -->
 <div class="devbar">
-  <h4>User</h4>
+  <h4>1 · In Shopee frame</h4>
   <div class="seg">
     <button data-user="new" class="on">New user</button>
     <button data-user="ret">Returning</button>
     <button data-user="sheet">Addr sheet</button>
-    <button data-user="stripe">Stripe</button>
+  </div>
+  <h4>2 · Agentic supported</h4>
+  <div class="seg">
+    <button data-user="stnew">New user</button>
+    <button data-user="stripe">Returning</button>
+  </div>
+  <h4>3 · Not supported</h4>
+  <div class="seg">
+    <button data-user="nonag">eBay handoff</button>
   </div>
   <h4>Steps</h4>
   <div class="steps" id="stepList"></div>
@@ -1448,7 +1456,7 @@ function productCardEl(key, onTap){
     <div class="meta">
       <div class="name">${esc(p.name)}</div>
       <div class="tags">${esc(p.tags)}</div>
-      <div class="price">${esc(p.price)}${(p.agentic && state.userType === 'stripe') ? '<span class="mg-tag">Buy with Migoo</span>' : ''}</div>
+      <div class="price">${esc(p.price)}${(p.agentic && standalone()) ? '<span class="mg-tag">Buy with Migoo</span>' : ''}</div>
     </div>`;
   const tag = card.querySelector('.mg-tag');
   if(tag) tag.addEventListener('click', e=>{ e.stopPropagation(); cardBuyAction(key); });
@@ -1461,7 +1469,7 @@ function cardBuyAction(key){
   if(state.step < 1){
     state.entry = 'pdp';
     state.orderKey = key;
-    state.orderStore = (state.userType === 'stripe') ? 'Amazon' : 'Shopee';
+    state.orderStore = (standalone()) ? 'Amazon' : 'Shopee';
     state.orderPrice = null;
     next();                                   // → step 1 (order request)
   } else {
@@ -1840,7 +1848,7 @@ function renderPS(view){
     body.innerHTML = `
       <div class="ps-title">Choose your payment method</div>
       ${savedRow}
-      ${WALLET_ROWS.filter(r => state.userType !== 'stripe' || r.id !== 'applepay').map(r=>`
+      ${WALLET_ROWS.filter(r => !standalone() || r.id !== 'applepay').map(r=>`
       <div class="ps-row" data-act="sel-main" data-id="${r.id}">
         <div class="ps-radio${state.psSel===r.id?' on':''}"></div>
         <div class="ps-logo">${payLogo(r.logo)}</div>
@@ -1993,6 +2001,16 @@ $('#psBody').addEventListener('click', e=>{
         manage:{name:'Jack Tate', email:'jack.tate@example.com', acct:'MASTERCARD ···· 4444'}});
     }
     state.savedSel='mc4444'; state.psSel='saved';
+    if(state.pay.id === 'st-none'){
+      // first card bound → it becomes the order's method and pays right away
+      state.pay = {id:'mc4444', logo:'mastercard', label:'···· 4444', payName:'Mastercard ···· 4444'};
+      refreshOrderPay();
+      state.psMode = 'edit';
+      $('#paysheet').classList.remove('on');
+      state.paying = true;
+      payProcessing();
+      return;
+    }
     renderPS('main');
   }
 });
@@ -2191,10 +2209,14 @@ function issueOrderCard(){
     if(state.step > 3){ b.disabled = true; return; }   // already paid — never pay twice
     b.disabled = true;
     state.paying = true;                               // freeze the countdown while verification runs
-    // Stripe path: pick/confirm the payment method, then pay straight away (no challenge)
-    if(state.userType === 'stripe'){
-      b.disabled = false;                                  // sheet can be dismissed — allow retry
-      openPaySheet('pay');
+    // standalone paths: new user binds a card first; returning pays straight away (no challenge)
+    if(standalone()){
+      if(state.pay.id === 'st-none'){
+        b.disabled = false;                                // sheet can be dismissed — allow retry
+        openStripeBind();
+        return;
+      }
+      payProcessing();
       return;
     }
     // brand-new user: register Face ID for Agentic Checkout (PIN-confirmed), then pay with it
@@ -2211,42 +2233,83 @@ function issueOrderCard(){
   window.__orderBtn = btn;
   startOrderCountdown(wrap);
 }
-/* ---- eBay in-app browser: buy a non-agentic item end to end (Stripe path) ---- */
-function openEbay(key){
-  state.ebKey = key || 'bag2';
-  renderEB('item');
-  $('#ebayview').classList.add('on');
+/* ---- in-app browser: merchant sites (eBay / Amazon / Walmart) ---- */
+const SHOP_META = {
+  ebay:   {host:'ebay.com',    color:'#3665F3', btnBg:'#3665F3', btnFg:'#fff',     buy:'Buy It Now',  pay:'Confirm and pay',   orderNo:'12-09876-54321'},
+  amazon: {host:'amazon.com',  color:'#FF9900', btnBg:'#FFD814', btnFg:'#0F1111',  buy:'Buy Now',     pay:'Place your order',  orderNo:'114-2769880-53'},
+  walmart:{host:'walmart.com', color:'#0071CE', btnBg:'#0071CE', btnFg:'#fff',     buy:'Buy now',     pay:'Place order',       orderNo:'2000104-8837'}
+};
+function shopLogoInline(store){
+  if(store === 'amazon') return `<span style="display:inline-flex; flex-direction:column; line-height:1"><b style="font-size:19px; letter-spacing:-.5px; color:#131921">amazon</b><svg width="52" height="7" viewBox="0 0 52 7" style="margin-top:0"><path d="M2 1c12 7 36 7 46-2" stroke="#FF9900" stroke-width="2.2" fill="none" stroke-linecap="round"/></svg></span>`;
+  if(store === 'walmart') return `<span style="font-size:19px; font-weight:800; color:#0071CE">Walmart <span style="color:#FFC220">✻</span></span>`;
+  return `<span class="eb-logo"><i style="color:#E53238">e</i><i style="color:#0064D2">b</i><i style="color:#F5AF02">a</i><i style="color:#86B817">y</i></span>`;
 }
-function closeEbay(){ $('#ebayview').classList.remove('on'); }
-$('#ebX').addEventListener('click', closeEbay);
-function renderEB(view){
-  const p = PRODUCTS[state.ebKey || 'bag2'];
-  const a = amountsFor(state.ebKey || 'bag2');
-  const logo = `<span class="eb-logo"><i style="color:#E53238">e</i><i style="color:#0064D2">b</i><i style="color:#F5AF02">a</i><i style="color:#86B817">y</i></span>`;
-  const body = $('#ebBody');
-  if(view === 'item'){
-    body.innerHTML = `
-      <div class="eb-hdr">${logo}<span class="sp"></span>
+function shopHead(store){
+  if(store === 'amazon') return `
+      <div style="background:#131921; color:#fff; padding:10px 14px; display:flex; align-items:center; gap:12px">
+        <svg width="20" height="16" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
+        <span style="display:inline-flex; flex-direction:column; line-height:1"><b style="font-size:19px; letter-spacing:-.5px">amazon</b><svg width="52" height="7" viewBox="0 0 52 7"><path d="M2 1c12 7 36 7 46-2" stroke="#FF9900" stroke-width="2.2" fill="none" stroke-linecap="round"/></svg></span>
+        <span style="flex:1"></span>
+        <span style="font-size:12.5px">Sign in ›</span>
+        <svg width="22" height="22" viewBox="0 0 24 24"><path d="M4 6h2l2.4 10.5a1.5 1.5 0 0 0 1.5 1.2h7.4a1.5 1.5 0 0 0 1.5-1.2L20.5 9H7" stroke="#fff" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div style="padding:8px 12px; background:#232F3E"><div style="background:#fff; border-radius:8px; display:flex; overflow:hidden"><span style="flex:1; padding:9px 12px; font-size:13.5px; color:var(--ink-4)">Search Amazon</span><span style="width:46px; background:#FEBD69; display:flex; align-items:center; justify-content:center"><svg width="17" height="17" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.2" stroke="#131921" stroke-width="2.2" fill="none"/><path d="M15.2 15.2L20 20" stroke="#131921" stroke-width="2.2" stroke-linecap="round"/></svg></span></div></div>
+      <div style="background:#37475A; color:#fff; font-size:12px; padding:7px 14px">⌖ Deliver to Jack — San Francisco 94105</div>`;
+  if(store === 'walmart') return `
+      <div style="background:#0071CE; color:#fff; padding:11px 14px; display:flex; align-items:center; gap:12px">
+        <span style="font-size:19px; font-weight:800; white-space:nowrap">Walmart <span style="color:#FFC220">✻</span></span>
+        <div style="background:#fff; border-radius:17px; padding:8px 14px; font-size:12.5px; color:var(--ink-4); flex:1">Search everything at Walmart</div>
+        <svg width="22" height="22" viewBox="0 0 24 24"><path d="M4 6h2l2.4 10.5a1.5 1.5 0 0 0 1.5 1.2h7.4a1.5 1.5 0 0 0 1.5-1.2L20.5 9H7" stroke="#fff" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>`;
+  return `
+      <div class="eb-hdr">${shopLogoInline('ebay')}<span class="sp"></span>
         <svg width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" stroke="#191919" stroke-width="1.7" fill="none"/><path d="M4 20c1.5-3.5 4.5-5 8-5s6.5 1.5 8 5" stroke="#191919" stroke-width="1.7" fill="none" stroke-linecap="round"/></svg>
         <svg width="22" height="22" viewBox="0 0 24 24"><path d="M4 6h2l2.4 10.5a1.5 1.5 0 0 0 1.5 1.2h7.4a1.5 1.5 0 0 0 1.5-1.2L20.5 9H7" stroke="#191919" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <svg width="22" height="22" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" stroke="#191919" stroke-width="1.8" stroke-linecap="round"/></svg>
       </div>
-      <div class="eb-search"><span class="in">Search for anything</span><span class="go"><svg width="18" height="18" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.2" stroke="#fff" stroke-width="2.2" fill="none"/><path d="M15.2 15.2L20 20" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg></span></div>
-      <div class="eb-img">${art(p.art, 0, 'contain')}</div>
+      <div class="eb-search"><span class="in">Search for anything</span><span class="go"><svg width="18" height="18" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.2" stroke="#fff" stroke-width="2.2" fill="none"/><path d="M15.2 15.2L20 20" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg></span></div>`;
+}
+function shopSellerRow(store){
+  if(store === 'amazon') return `<div class="eb-sub" style="margin-top:10px; color:#007185; font-weight:600">Visit the MABULA Store</div><div class="eb-sub">4.6 ★★★★☆ (12,438 ratings) · <span style="background:#232F3E; color:#fff; padding:2px 6px; border-radius:3px; font-size:11px">Amazon's Choice</span></div>`;
+  if(store === 'walmart') return `<div class="eb-sub" style="margin-top:10px"><b>Sold & shipped by Walmart</b> · Free 90-day returns</div>`;
+  return `<div class="eb-seller"><span class="av">m</span><span><b>mabula_official</b> (2.4K) · 99.1% positive<br>Ships from San Francisco, CA</span></div>`;
+}
+function openShopBrowser(store, key, price){
+  state.ebStore = SHOP_META[store] ? store : 'ebay';
+  state.ebKey = key || 'bag2';
+  state.ebPrice = (price != null) ? price : null;
+  document.querySelector('#ebayview .eb-top .host').textContent = SHOP_META[state.ebStore].host;
+  renderEB('item');
+  $('#ebayview').classList.add('on');
+}
+function openEbay(key){ openShopBrowser('ebay', key, null); }
+function closeEbay(){ $('#ebayview').classList.remove('on'); }
+$('#ebX').addEventListener('click', closeEbay);
+function renderEB(view){
+  const store = state.ebStore || 'ebay';
+  const m = SHOP_META[store];
+  const p = PRODUCTS[state.ebKey || 'bag2'];
+  const a = amountsFor(state.ebKey || 'bag2', state.ebPrice);
+  const btn = (id, label) => `<button class="eb-btn" id="${id}" style="background:${m.btnBg}; color:${m.btnFg}">${label}</button>`;
+  const body = $('#ebBody');
+  if(view === 'item'){
+    body.innerHTML = `
+      ${shopHead(store)}
+      <div class="eb-img" style="margin-top:12px">${art(p.art, 0, 'contain')}</div>
       <div class="eb-body">
         <div class="eb-title">${esc(p.name)}</div>
         <div class="eb-cond">Condition: New with tags</div>
         <div class="eb-price">US ${esc(a.price)}</div>
         <div class="eb-sub">Free 2–4 day shipping · 30-day returns</div>
-        <button class="eb-btn" id="ebBuy">Buy It Now</button>
+        ${btn('ebBuy', m.buy)}
         <button class="eb-btn line">Add to cart</button>
-        <div class="eb-seller"><span class="av">m</span><span><b>mabula_official</b> (2.4K) · 99.1% positive<br>Ships from San Francisco, CA</span></div>
+        ${shopSellerRow(store)}
       </div>`;
     $('#ebBuy').addEventListener('click', ()=>renderEB('checkout'));
   }
   if(view === 'checkout'){
     body.innerHTML = `
-      <div class="eb-hdr">${logo}<span class="sp"></span><span style="font-size:15px;font-weight:700">Checkout</span></div>
+      <div class="eb-hdr">${shopLogoInline(store)}<span class="sp"></span><span style="font-size:15px;font-weight:700">Checkout</span></div>
       <div class="eb-body" style="padding-top:4px">
         <div class="eb-sec">Ship to</div>
         <div class="eb-card"><div style="font-size:13px; line-height:1.5">Jack Tate<br>${esc((state.addr||SAVED_ADDR).address)}<br>${esc((state.addr||SAVED_ADDR).phone)}</div></div>
@@ -2259,18 +2322,18 @@ function renderEB(view){
         <div class="eb-row"><span class="k">Shipping</span><span>Free</span></div>
         <div class="eb-row"><span class="k">Tax</span><span>${esc(a.tax)}</span></div>
         <div class="eb-row" style="font-weight:800; border-top:1px solid var(--line)"><span>Order total</span><span>${esc(a.total)}</span></div>
-        <button class="eb-btn" id="ebPay">Confirm and pay</button>
+        ${btn('ebPay', m.pay)}
       </div>`;
     $('#ebPay').addEventListener('click', ()=>renderEB('done'));
   }
   if(view === 'done'){
     body.innerHTML = `
-      <div class="eb-hdr">${logo}</div>
+      <div class="eb-hdr">${shopLogoInline(store)}</div>
       <div class="eb-body">
-        <div class="eb-ok"><svg width="30" height="30" viewBox="0 0 34 34"><path d="M8 17.5l6.5 6.5L26 10.5" stroke="#fff" stroke-width="3.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="eb-ok" style="background:${m.color}"><svg width="30" height="30" viewBox="0 0 34 34"><path d="M8 17.5l6.5 6.5L26 10.5" stroke="#fff" stroke-width="3.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
         <div class="eb-done-h">Order confirmed</div>
-        <div class="eb-done-p">Thanks Jack! Your order is confirmed.<br>Order number: 12-09876-54321 · ${esc(a.total)} paid with Visa ···· 4242<br>Arriving Aug 16 – Aug 18</div>
-        <button class="eb-btn" id="ebDone">Done</button>
+        <div class="eb-done-p">Thanks Jack! Your order is confirmed.<br>Order number: ${m.orderNo} · ${esc(a.total)} paid with Visa ···· 4242<br>Arriving Aug 16 – Aug 18</div>
+        ${btn('ebDone', 'Done')}
       </div>`;
     $('#ebDone').addEventListener('click', ()=>{ closeEbay(); closePDP(); });
   }
@@ -2459,8 +2522,16 @@ function editAddress(){
 }
 function editPayment(){
   if(state.pay.id === 'sp-new'){ openEnrollSheet(); return; }   // not registered yet — same first-time flow
-  if(state.userType !== 'stripe'){ openSPM(); return; }         // in-Shopee: the Shopee Payment Method sheet
+  if(!standalone()){ openSPM(); return; }         // in-Shopee: the Shopee Payment Method sheet
+  if(state.pay.id === 'st-none'){ openStripeBind(); return; }   // no card yet — bind first
   openPaySheet();
+}
+
+/* stnew: the card-binding form (dismiss = cancel the pending payment) */
+function openStripeBind(){
+  state.psMode = 'pay';
+  renderPS('newcard');
+  $('#paysheet').classList.add('on');
 }
 
 /* ---- Shopee Payment Method sheet (returning users inside Shopee) ---- */
@@ -2626,7 +2697,7 @@ function storeLogo(id){
 const AMZ_REF_URL = 'https://www.amazon.com/KKXIU-Shoulder-Handbags-Underarm-Removable/dp/B0DKMQ7958';
 function supplierRows(p){
   const base = parseFloat(p.price.replace('$',''));
-  const rows = (state.userType === 'stripe') ? [
+  const rows = (standalone()) ? [
     {store:'amazon',  d:0,   rating:'4.6', act:'buy'},
     {store:'ebay',    d:2.5, rating:'4.3', act:'buy'},
     {store:'walmart', d:3.5, rating:'4.5', act:'view'},
@@ -2660,9 +2731,9 @@ function openPDP(key){
     <div class="swatches" data-g="${gi}">${g.options.map((o,i)=>
       `<div class="sw${i===0?' on':''}${o.off?' off':''}" data-c="${esc(o.name)}">${esc(o.name)}</div>`).join('')}</div>`).join('');
   // supplier comparison — every path runs inside Shopee, so only the Shopee offer is listed
-  const supRows = supplierRows(p).filter(r => state.userType === 'stripe' ? r.store !== 'shopee' : r.store === 'shopee');
+  const supRows = supplierRows(p).filter(r => standalone() ? r.store !== 'shopee' : r.store === 'shopee');
   $('#supList').innerHTML = supRows.map(r=>`
-    <div class="sup-row">
+    <div class="sup-row" data-skey="${r.store}" data-rprice="${(parseFloat(r.price.slice(1))).toFixed(2)}">
       <div class="sup-logo">${storeLogo(r.store)}</div>
       <div class="sup-mid">
         <div class="sup-price">${esc(r.price)}</div>
@@ -2685,7 +2756,7 @@ function openPDP(key){
     </div>`;
   // inside Shopee every item is agentic; on the Stripe path only tagged items are —
   // the rest hand off to the Shopee checkout page
-  const agenticHere = p.agentic || state.userType !== 'stripe';
+  const agenticHere = p.agentic || !standalone();
   $('#pdpBuy').textContent = agenticHere ? `Buy with Migoo · ${p.price}` : `Buy at eBay · ${p.price}`;
   $('#pdpBuy').classList.toggle('migoo', agenticHere);
   buildGallery(key);
@@ -2710,11 +2781,15 @@ $('#pdpSpecs').addEventListener('click', e=>{
     if(gp) gp.textContent = sw.dataset.c;
   }
 });
-/* supplier list: Buy = same as the blue CTA; View = open the original site */
+/* supplier list: Buy = agentic checkout; View = the merchant's site in the in-app browser */
 $('#supList').addEventListener('click', e=>{
   const viewLnk = e.target.closest('[data-view]');
   const btn = e.target.closest('.sup-btn');
-  if(viewLnk || (btn && btn.dataset.act === 'view')){ window.open(AMZ_REF_URL, '_blank'); return; }
+  if(viewLnk || (btn && btn.dataset.act === 'view')){
+    const row = e.target.closest('.sup-row');
+    openShopBrowser(row?.dataset.skey || 'ebay', currentPdpKey || 'bag2', row ? parseFloat(row.dataset.rprice) : null);
+    return;
+  }
   if(btn && btn.dataset.act === 'buy') pdpBuyAction(btn.dataset.store, parseFloat(btn.dataset.price));
 });
 $('#supToggle').addEventListener('click', ()=>{
@@ -2765,7 +2840,7 @@ const S_LIST = { label:'Product list reply', run(){
         {t:'product', key:'bag3', onTap:()=>{ openPDP('bag3'); }},
         {t:'p', text:'All three ship from authenticated sellers. Tap one to see details, or just tell me which one you want.'}
       ]);
-      if(state.userType === 'stripe'){
+      if(state.userType === 'nonag'){
         after(()=>{
           // natural-language purchase of a non-agentic item: explain + hand the card back
           followupMsg([{label:'Buy the 2nd bag for me', onTap:()=>{
@@ -2852,19 +2927,37 @@ const S_MEMORY = { label:'Memory added', run(){
   }};
 /* two experience paths: a first-time user registers Face ID for Agentic
    Checkout (PIN-confirmed) right at payment; a returning user pays via Face ID */
+const S_PDP2 = { label:'Product detail page', run(){
+    openPDP('bag2');
+}};
+const S_EBUY = { label:'eBay · in-app browser', run(){
+    openPDP('bag2');
+    openEbay('bag2');
+}};
+const S_EDONE = { label:'Payment success (eBay)', run(){
+    openPDP('bag2');
+    openEbay('bag2');
+    renderEB('done');
+}};
 const FLOWS = {
   new:    [S_LIST, S_REQ, S_CREATE, S_CARD, S_PAID, S_RECAP, S_MEMORY],
   ret:    [S_LIST, S_REQ, S_CREATE, S_CARD, S_PAID, S_RECAP, S_MEMORY],
   sheet:  [S_LIST, S_REQ, S_CREATE, S_CARD, S_PAID, S_RECAP, S_MEMORY],
-  stripe: [S_LIST, S_REQ, S_CREATE, S_CARD, S_PAID, S_RECAP, S_MEMORY]
+  stripe: [S_LIST, S_REQ, S_CREATE, S_CARD, S_PAID, S_RECAP, S_MEMORY],
+  stnew:  [S_LIST, S_REQ, S_CREATE, S_CARD, S_PAID, S_RECAP, S_MEMORY],
+  nonag:  [S_LIST, S_PDP2, S_EBUY, S_EDONE]
 };
 function curFlow(){ return FLOWS[state.userType]; }
+/* standalone migoo shell paths (outside the Shopee frame) */
+function standalone(){ return state.userType === 'stripe' || state.userType === 'stnew' || state.userType === 'nonag'; }
 
 const NOTES = {
   new:'New user: tapping pay opens the "Register your Face ID for Agentic Checkout" sheet (payment sequence overview) → confirm with the ShopeePay PIN → registration done, and this payment verifies with Face ID right away. Future payments use Face ID directly.',
   ret:'Returning user: Face ID is already enrolled, so "Pay with Shopee Pay" verifies with Face ID and confirms right in the chat. The payment pencil opens the Stripe-style sheet; the mail banner swipes up to dismiss. Tip: the 2nd bag is non-agentic — buying it hands off to the Shopee Checkout page instead of the chat.',
   sheet:'Address-sheet variant: same returning-user flow, but the Deliver-to pencil opens the two-level Shopee address book (My Addresses list → Edit Address form) instead of the chat dialogue. Submit applies the address to the order in place.',
-  stripe:'Stripe path (standalone migoo shell, Amazon/eBay merchants — no Shopee): tagged items check out in the chat via Buy with Migoo; the 2nd bag is non-agentic and links out to eBay. Tapping Pay opens the "Choose your payment method" sheet (Card ···· 6789 / New card / Link / US bank / Cash App); Continue confirms the method and pays immediately, no Face ID challenge.'
+  stripe:'Category 2 — returning user (standalone shell, Amazon/eBay merchants): a card is already bound (···· 6789), so tapping Pay charges it straight away — Processing → receipt, no challenge, just like the in-Shopee flow. The Payment pencil opens the Choose-payment sheet to switch methods.',
+  stnew:'Category 2 — new user (standalone shell): no payment method yet — the Payment row shows an empty "Add card" state. Tapping Pay or the pencil opens the Stripe card form; adding the card binds it, updates the order in place and pays immediately.',
+  nonag:'Category 3 — item without agentic checkout (standalone migoo shell): the 2nd bag carries no Buy with Migoo tag. Typing to buy it gets an explanation plus the product card; the PDP CTA is "Buy at eBay", which opens an iOS in-app browser and completes the purchase on eBay (item → checkout → order confirmed).'
 };
 
 function next(){
@@ -2898,24 +2991,27 @@ function clearShell(){
   window.__orderWrap = null;
   state.entry = null;
   state.orderKey = 'bag3';
-  state.orderStore = (state.userType === 'stripe') ? 'Amazon' : 'Shopee'; state.orderPrice = null;
+  state.orderStore = (standalone()) ? 'Amazon' : 'Shopee'; state.orderPrice = null;
   state.qbKey = 'bag2'; state.qbPrice = null;
   state.paying = false;
   state.addr = null;
-  state.pay = (state.userType === 'stripe')
+  state.pay = (state.userType === 'stnew')
+    ? {id:'st-none', logo:'newcard', label:'Add card', payName:'Card'}
+    : (standalone())
     ? {id:'st6789', logo:'stripe', label:'···· 6789', payName:'Card ···· 6789'}
     : (state.userType === 'new')
     ? {id:'sp-new',  logo:'shopeepay', label:'ShopeePay',  payName:'Shopee Pay'}
     : {id:'sp6789', logo:'shopeepay', label:'···· 6789', payName:'Shopee Pay'};
-  state.savedSel = (state.userType === 'stripe') ? 'st6789' : 'sp6789'; state.psSel = 'saved';
+  state.savedSel = (state.userType === 'stnew') ? null : (standalone()) ? 'st6789' : 'sp6789'; state.psSel = 'saved';
   state.addrEditing = false;
   state.addrSent = false;
-  state.spEnrolled = (state.userType === 'ret' || state.userType === 'sheet' || state.userType === 'stripe');
+  state.spEnrolled = (state.userType === 'ret' || state.userType === 'sheet' || standalone());
   state.psMode = 'edit';
   state.ckProt = false; state.ckView = 'form';
   closeCheckout();
-  document.querySelector('.phone').classList.toggle('assistant', state.userType !== 'stripe'); state.pinMode = null; state.pinBuf = '';
-  PAY_METHODS = (state.userType === 'stripe') ? STRIPE_METHODS.map(m=>({...m}))
+  document.querySelector('.phone').classList.toggle('assistant', !standalone()); state.pinMode = null; state.pinBuf = '';
+  PAY_METHODS = (state.userType === 'stnew') ? []
+              : (standalone()) ? STRIPE_METHODS.map(m=>({...m}))
               : (state.userType === 'new') ? [] : INIT_METHODS.map(m=>({...m}));
 }
 
@@ -2969,7 +3065,7 @@ $('#expireBtn').addEventListener('click', ()=>{
    through the migoo chat; non-agentic items hand off to the Shopee checkout page. */
 function pdpBuyAction(store, price){
   const key = currentPdpKey || 'bag2';
-  if(!PRODUCTS[key].agentic && state.userType === 'stripe'){
+  if(!PRODUCTS[key].agentic && standalone()){
     // non-agentic item on the Stripe path: buy it on eBay inside the in-app browser
     openEbay(key);
     return;
@@ -2977,7 +3073,7 @@ function pdpBuyAction(store, price){
   if(state.step < 1){
     state.entry = 'pdp';
     state.orderKey = key;
-    state.orderStore = store || (state.userType === 'stripe' ? 'Amazon' : 'Shopee');
+    state.orderStore = store || (standalone() ? 'Amazon' : 'Shopee');
     state.orderPrice = (price != null) ? price : null;
     next();                                   // → step 1 (order request)
   } else {
