@@ -606,6 +606,50 @@ body{
 .as-chip.on{background:#FFF0EB; color:#EE4D2D; font-weight:600; box-shadow:inset 0 0 0 1px #EE4D2D}
 .as-cta{width:100%; margin-top:12px; height:46px; border:0; border-radius:12px; background:#EE4D2D; color:#fff; font-size:15.5px; font-weight:700; font-family:var(--font); cursor:pointer}
 .as-cta:active{transform:scale(.985)}
+/* address book list */
+.as-head .x.plus{font-size:17px; font-weight:600; color:var(--ink)}
+.as-import{
+  position:sticky; top:0; z-index:2; display:flex; align-items:center; gap:7px;
+  background:#FFF6EE; border:1px solid #F5C9AE; border-radius:11px;
+  padding:11px 13px; margin-bottom:10px; font-size:13px; font-weight:600; color:#D0431F; cursor:pointer;
+}
+.as-import:active{transform:scale(.99)}
+.as-item{background:#fff; border-radius:14px; padding:12px 13px; margin-bottom:9px; cursor:pointer}
+.as-item:active{transform:scale(.99)}
+.as-item .l1{font-size:13.5px; color:var(--ink); display:flex; align-items:center; gap:7px}
+.as-item .l1 .sep{color:var(--line-2)}
+.as-item .l2{font-size:12.5px; color:var(--ink-2); margin-top:5px; line-height:1.4}
+.as-item .l3{font-size:12px; color:var(--ink-3); margin-top:2px}
+.as-item .ichips{display:flex; flex-wrap:wrap; gap:6px; margin-top:7px}
+.as-item .ichips:empty{display:none}
+.as-item .ic{font-size:10.5px; padding:2.5px 7px; border-radius:5px; border:1px solid var(--line-2); color:var(--ink-3)}
+.as-item .ic.on{border-color:#EE4D2D; color:#EE4D2D}
+.as-item .ic.use{border-color:#1DA462; color:#1DA462}
+/* edit form (stacked fields) */
+.as-card.quickfill{background:#FFF6EE; border:1px solid #F8D9C4}
+.qf-h{font-size:14px; font-weight:700; color:var(--ink)}
+.qf-s{font-size:11.5px; color:var(--ink-3); margin-top:4px; line-height:1.45}
+.qf-box{background:#fff; border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-top:9px; font-size:12.5px; line-height:1.5; color:var(--ink)}
+.qf-box.ph{color:var(--ink-4)}
+.qf-row{display:flex; justify-content:flex-end; margin-top:9px}
+.asf{padding:10.5px 0; border-bottom:1px solid var(--line); position:relative}
+.asf:last-child{border-bottom:0}
+.asf .k{font-size:12px; color:var(--ink-3)}
+.asf .v{font-size:14px; color:var(--ink); margin-top:4px; line-height:1.45; min-height:18px}
+.asf .v.muted{color:var(--ink-4)}
+.asf.chev .c{position:absolute; right:2px; top:50%; transform:translateY(-50%); color:var(--ink-4); font-size:16px}
+.asf .v.flash{animation:asFlash .9s ease; border-radius:6px}
+.as-map{border-radius:14px; overflow:hidden; margin-bottom:10px; line-height:0}
+.as-map svg{width:100%; height:auto}
+.as-tgl{display:flex; align-items:center; justify-content:space-between; padding:11px 0; border-bottom:1px solid var(--line); font-size:13.5px; color:var(--ink)}
+.as-tgl:last-child{border-bottom:0}
+.as-tgl .tg{width:44px; height:26px; border-radius:13px; background:var(--line-2); position:relative; cursor:pointer; transition:background .2s ease; flex:0 0 44px}
+.as-tgl .tg::after{content:''; position:absolute; top:2px; left:2px; width:22px; height:22px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.2); transition:left .2s ease}
+.as-tgl .tg.on{background:#1DA462}
+.as-tgl .tg.on::after{left:20px}
+.as-foot{display:flex; gap:10px; margin-top:12px}
+.as-del{flex:1; height:46px; border:1.5px solid #EE4D2D; border-radius:12px; background:#fff; color:#EE4D2D; font-size:15px; font-weight:600; font-family:var(--font); cursor:pointer}
+.as-cta.submit{flex:1.2; margin-top:0}
 .ps-title{font-size:16px; font-weight:600; color:var(--ink); margin:0 2px 4px}
 .ps-title.big{font-size:19px; font-weight:700; margin:6px 2px 12px}
 .ps-row{display:flex; align-items:center; gap:12px; padding:13px 2px; border-bottom:1px solid var(--line); cursor:pointer}
@@ -1189,6 +1233,7 @@ const SAVED_ADDR = {
   short:'Jack Tate, 535 Mission St, San Francisco',
   address:'535 Mission St, Floor 14, San Francisco, CA 94105, USA',
   phone:'+1 (415) 555-6432',
+  street:'535 Mission St, Floor 14', district:'FINANCIAL DISTRICT', area:'SAN FRANCISCO, CA 94105, US', postal:'94105',
   partial:'535 Mission St, Floor 14, San Francisco',
   supplement:'Jack Tate, CA 94105, USA\n+1 (415) 555-6432'
 };
@@ -1197,8 +1242,22 @@ const NEW_ADDR = {
   short:'Jack Tate, 88 King St, San Francisco',
   address:'88 King St, Apt 12, San Francisco, CA 94107, USA',
   phone:'+1 (415) 555-8890',
+  street:'88 King St, Apt 12', district:'MISSION BAY', area:'SAN FRANCISCO, CA 94107, US', postal:'94107',
   partial:'88 King St, Apt 12, San Francisco',
   supplement:'Jack Tate, CA 94107, USA\n+1 (415) 555-8890'
+};
+/* extra entries for the Shopee-style address book (sheet path) */
+const OFFICE_ADDR = {
+  short:'Jack Tate, 1 Market St, San Francisco',
+  address:'1 Market St, Suite 300, San Francisco, CA 94105, USA',
+  phone:'+1 (415) 555-2210',
+  street:'1 Market St, Suite 300', district:'EMBARCADERO', area:'SAN FRANCISCO, CA 94105, US', postal:'94105'
+};
+const FILL_ADDR = {
+  short:'Jack Tate, 2130 Fillmore St, San Francisco',
+  address:'2130 Fillmore St, San Francisco, CA 94115, USA',
+  phone:'+1 (415) 555-3344',
+  street:'2130 Fillmore St', district:'PACIFIC HEIGHTS', area:'SAN FRANCISCO, CA 94115, US', postal:'94115'
 };
 
 /* two-stage address intake with a completeness check: the first message
@@ -2031,55 +2090,120 @@ function refreshOrderPay(){
 }
 
 /* ---- half-screen Shopee address editor (the "Addr sheet" path) ---- */
-function openAddrSheet(){
-  const cur = state.addr || SAVED_ADDR;
-  const target = (cur === NEW_ADDR) ? SAVED_ADDR : NEW_ADDR;
-  state.asPicked = null;
-  const smartText = `Jack Tate ${target.phone} ${target.address}`;
-  $('#asBody').innerHTML = `
-    <div class="as-head"><span class="t">Edit Delivery Address</span><button class="x" id="asX">✕</button></div>
-    <div class="as-card">
-      <div class="as-smart-txt" id="asSmart">${esc(smartText)}</div>
-      <div class="as-smart-row">
-        <span class="as-mini">🛍 Import from Shopee</span>
-        <button class="as-recog" id="asRecog">Recognize</button>
+/* Two levels: the address book list (with a Shopee-import banner and a "+"
+   to add), then the Shopee-style Edit Address form for the tapped entry. */
+function openAddrSheet(){ renderAS('list'); $('#addrsheet').classList.add('on'); }
+
+function renderAS(mode, target){
+  if(mode === 'list'){
+    const cur = state.addr || SAVED_ADDR;
+    $('#asBody').innerHTML = `
+      <div class="as-head">
+        <button class="x" id="asX">✕</button>
+        <span class="t">My Addresses</span>
+        <button class="x plus" id="asAdd">＋</button>
       </div>
-    </div>
-    <div class="as-card">
-      <div class="as-field"><span class="k">Region</span><div class="v">California, United States</div><span class="chev">›</span></div>
-      <div class="as-field"><span class="k">Street address</span><div class="v" id="asStreet">${esc(cur.address)}</div></div>
-      <div class="as-field"><span class="k">Recipient</span><div class="v" id="asName">Jack Tate</div><span class="contacts">👤 Contacts</span></div>
-      <div class="as-field"><span class="k">Phone</span><div class="v"><span class="cc">+1 ⌄</span><span id="asPhone">${esc(cur.phone.replace('+1 ',''))}</span></div></div>
-      <div class="as-field"><span class="k">Email</span><div class="v muted">jack.tate@example.com</div></div>
-      <div class="as-field"><span class="k">Backup phone</span><div class="v muted">Recommended — helps couriers reach you</div></div>
-    </div>
-    <div class="as-card">
-      <div class="as-default">
-        <div class="txt">
-          <div class="h">Set as default shipping address</div>
-          <div class="s">Delivery items use this address first. Instant delivery not yet supported.</div>
-        </div>
-        <span class="as-radio on"></span>
-      </div>
-      <div class="as-chiprow"><span class="k">Scenario</span><div class="as-chips"><span class="as-chip on">Shopping</span><span class="as-chip">Instant delivery</span></div></div>
-      <div class="as-chiprow"><span class="k">Label</span><div class="as-chips"><span class="as-chip">School</span><span class="as-chip on">Home</span><span class="as-chip">Work</span><span class="as-chip">Custom</span></div></div>
-    </div>
-    <button class="as-cta" id="asCta">Confirm</button>`;
-  $('#asX').addEventListener('click', closeAddrSheet);
-  $('#asRecog').addEventListener('click', ()=>{
-    // auto-fill the form from the pasted text
-    state.asPicked = target;
-    $('#asStreet').textContent = target.address;
-    $('#asPhone').textContent = target.phone.replace('+1 ','');
-    ['asStreet','asName','asPhone'].forEach(id=>{
-      const n = $('#'+id); n.classList.remove('flash'); void n.offsetWidth; n.classList.add('flash');
+      <div class="as-import" id="asImport">🛍 Import your addresses from Shopee</div>
+      <div id="asList">
+        ${state.addrBook.map((a,i)=>`
+        <div class="as-item" data-i="${i}">
+          <div class="l1"><b>Jack Tate</b><span class="sep">|</span><span>${esc(a.phone)}</span></div>
+          <div class="l2">${esc(a.street)}</div>
+          <div class="l3">${esc(a.area)}</div>
+          <div class="ichips">
+            ${a===SAVED_ADDR?'<span class="ic on">Default</span><span class="ic">Pickup Address</span><span class="ic">Return Address</span>':''}
+            ${a===cur?'<span class="ic use">In use on this order</span>':''}
+          </div>
+        </div>`).join('')}
+      </div>`;
+    $('#asX').addEventListener('click', closeAddrSheet);
+    $('#asAdd').addEventListener('click', ()=>renderAS('new'));
+    $('#asImport').addEventListener('click', ()=>toast('Addresses synced from Shopee.'));
+    document.querySelectorAll('#asList .as-item').forEach(it=>{
+      it.addEventListener('click', ()=>renderAS('edit', state.addrBook[+it.dataset.i]));
     });
-    toast('Address recognized — fields updated.');
-  });
-  $('#asCta').addEventListener('click', ()=>{
-    if(!state.asPicked){ closeAddrSheet(); return; }      // nothing changed — cancel silently
-    state.addr = state.asPicked;
-    state.asPicked = null;
+    return;
+  }
+
+  // ---- edit / new form ----
+  const isNew = mode === 'new';
+  const a = target || {street:'', area:'', postal:'', phone:''};
+  state.asEditTarget = isNew ? null : target;
+  $('#asBody').innerHTML = `
+    <div class="as-head">
+      <button class="x" id="asBack">‹</button>
+      <span class="t">${isNew ? 'New Address' : 'Edit Address'}</span>
+      <span style="width:26px"></span>
+    </div>
+    <div class="as-card quickfill">
+      <div class="qf-h">⧉ Paste and Quick-Fill</div>
+      <div class="qf-s">Paste or input the information, tap Fill to input the name, phone number, and address.</div>
+      <div class="qf-box${isNew?'':' ph'}" id="asQf">${isNew ? esc(`Jack Tate ${FILL_ADDR.phone}, ${FILL_ADDR.address}`) : 'Paste or input the information, tap Fill to input the name, phone number, and address.'}</div>
+      ${isNew ? '<div class="qf-row"><button class="as-recog" id="asFill">Fill</button></div>' : ''}
+    </div>
+    <div class="as-card">
+      <div class="asf"><div class="k">Full Name</div><div class="v" id="asfName">${isNew?'':'Jack Tate'}</div></div>
+      <div class="asf"><div class="k">Phone Number</div><div class="v" id="asfPhone">${esc(a.phone)}</div></div>
+      <div class="asf chev"><div class="k">Province, City, District, Postal Code</div><div class="v" id="asfArea">${a.area?esc('CALIFORNIA\nSAN FRANCISCO\n'+(a.district||'')+'\n'+a.postal).replace(/\n/g,'<br>'):''}</div><span class="c">›</span></div>
+      <div class="asf"><div class="k">Street Name, Building, House No.</div><div class="v" id="asfStreet">${esc(a.street)}</div></div>
+      <div class="asf"><div class="k">Other Details (e.g. Block / Unit No., Landmarks)</div><div class="v muted"></div></div>
+    </div>
+    <div class="as-map">
+      <svg viewBox="0 0 340 110" preserveAspectRatio="xMidYMid slice">
+        <rect width="340" height="110" fill="#EEF2F5"/>
+        <g stroke="#C7D5E0" stroke-width="7" stroke-linecap="round">
+          <path d="M-10 90 L120 -20"/><path d="M40 130 L190 -25"/><path d="M110 135 L260 -20"/><path d="M190 130 L330 -5"/><path d="M-20 45 L90 135"/>
+        </g>
+        <polygon points="300,110 340,70 340,110" fill="#DDEBD9"/>
+        <circle cx="170" cy="48" r="13" fill="#EE4D2D"/><rect x="168" y="58" width="4" height="16" rx="2" fill="#EE4D2D"/>
+        <text x="10" y="100" font-size="13" font-weight="700" fill="#9AA6B2" font-family="Arial">Google</text>
+      </svg>
+    </div>
+    <div class="as-card">
+      <div class="as-tgl"><span>Set as Default Address</span><span class="tg${(!isNew && target===SAVED_ADDR)?' on':''}"></span></div>
+      <div class="as-tgl"><span>Set as Pickup Address</span><span class="tg"></span></div>
+      <div class="as-tgl"><span>Set as Return Address</span><span class="tg"></span></div>
+      <div class="as-tgl label"><span>Label As:</span><span class="as-chips"><span class="as-chip">Work</span><span class="as-chip on">Home</span></span></div>
+    </div>
+    <div class="as-foot">
+      ${isNew ? '' : '<button class="as-del" id="asDel">Delete Address</button>'}
+      <button class="as-cta submit" id="asSubmit">Submit</button>
+    </div>`;
+  $('#asBack').addEventListener('click', ()=>renderAS('list'));
+  document.querySelectorAll('.as-tgl .tg').forEach(t=>t.addEventListener('click', ()=>t.classList.toggle('on')));
+  document.querySelectorAll('.as-chips .as-chip').forEach(c=>c.addEventListener('click', ()=>{
+    c.parentElement.querySelectorAll('.as-chip').forEach(x=>x.classList.remove('on')); c.classList.add('on');
+  }));
+  if(isNew){
+    $('#asFill').addEventListener('click', ()=>{
+      state.asEditTarget = FILL_ADDR;
+      $('#asfName').textContent = 'Jack Tate';
+      $('#asfPhone').textContent = FILL_ADDR.phone;
+      $('#asfStreet').textContent = FILL_ADDR.street;
+      $('#asfArea').innerHTML = esc('CALIFORNIA\nSAN FRANCISCO\n'+FILL_ADDR.district+'\n'+FILL_ADDR.postal).replace(/\n/g,'<br>');
+      ['asfName','asfPhone','asfStreet','asfArea'].forEach(id=>{
+        const n = $('#'+id); n.classList.remove('flash'); void n.offsetWidth; n.classList.add('flash');
+      });
+      toast('Details filled from the pasted text.');
+    });
+  } else {
+    $('#asDel').addEventListener('click', ()=>{
+      state.addrBook = state.addrBook.filter(x=>x!==target);
+      toast('Address deleted.');
+      renderAS('list');
+    });
+  }
+  $('#asSubmit').addEventListener('click', ()=>{
+    if(isNew){
+      if(!state.asEditTarget){ toast('Tap Fill to complete the address first.'); return; }
+      if(!state.addrBook.includes(state.asEditTarget)) state.addrBook.push(state.asEditTarget);
+      state.asEditTarget = null;
+      renderAS('list');
+      return;
+    }
+    // editing an existing entry: submitting applies it to this order
+    if(state.addr === target){ closeAddrSheet(); return; }   // no change — close silently
+    state.addr = target;
     closeAddrSheet();
     after(()=>{
       if(state.step > 3) return;
@@ -2087,7 +2211,6 @@ function openAddrSheet(){
       refreshOrderAddr();
     }, 400);
   });
-  $('#addrsheet').classList.add('on');
 }
 function closeAddrSheet(){ $('#addrsheet').classList.remove('on'); }
 $('#asDim').addEventListener('click', closeAddrSheet);
@@ -2436,7 +2559,8 @@ function clearShell(){
   $('#faceid').classList.remove('on','out');
   $('#odetail').classList.remove('on');
   closeAddrSheet();
-  state.asPicked = null;
+  state.asEditTarget = null;
+  state.addrBook = [SAVED_ADDR, NEW_ADDR, OFFICE_ADDR];
   $('#toast').classList.remove('on');
   closePDP();
   currentPdpKey = null;
