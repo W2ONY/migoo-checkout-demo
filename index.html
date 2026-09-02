@@ -235,6 +235,7 @@ body{
 /* superseded order card: greyed out, inert.
    animation:none is required — the .msg fadeUp animation (fill-mode:both)
    otherwise pins opacity at 1 and beats this rule. */
+.order .todo{color:var(--blue); font-weight:600}
 .order-wrap.stale{opacity:.55; pointer-events:none; animation:none; filter:grayscale(.35)}
 .order .total{display:flex; justify-content:space-between; align-items:baseline; gap:12px}
 .order .total .k{font-size:13px; color:var(--ink-3)}
@@ -1223,13 +1224,14 @@ body{
 <div class="devbar">
   <h4>1 · In Shopee frame</h4>
   <div class="seg">
-    <button data-user="new" class="on">New user</button>
+    <button data-user="newchat" class="on">New · in chat</button>
+    <button data-user="new">New · on card</button>
     <button data-user="ret">Returning</button>
-    <button data-user="sheet">Addr sheet</button>
   </div>
   <h4>2 · Agentic supported</h4>
   <div class="seg">
-    <button data-user="stnew">New user</button>
+    <button data-user="stchat">New · in chat</button>
+    <button data-user="stnew">New · on card</button>
     <button data-user="stripe">Returning</button>
   </div>
   <h4>3 · Not supported</h4>
@@ -1373,30 +1375,6 @@ const FILL_ADDR = {
 /* two-stage address intake with a completeness check: the first message
    is missing required fields, Migoo calls them out, the follow-up completes
    the set. Used by the delivery step and the order-card address edit. */
-function collectAddress(target, onDone){
-  setPending(target.partial, ()=>{
-    if(state.step > 3){ setPending(null); return; }      // paid meanwhile — the armed input is void
-    userMsg(target.partial);
-    after(()=>{
-      aiMsg([
-        {t:'p', text:'Thanks! Quick check before I continue — a few required details are missing:'},
-        {t:'ul', items:[
-          'Street address & city — received ✓',
-          'Full name — missing',
-          'State / Region — missing',
-          'Phone number — missing'
-        ]},
-        {t:'p', text:'Please send the missing details to complete your delivery info.'}
-      ]);
-      setPending(target.supplement, ()=>{
-        if(state.step > 3){ setPending(null); return; }  // paid meanwhile — discard, don't touch state.addr
-        userMsg(target.supplement);
-        state.addr = target;
-        onDone();
-      });
-    }, 650);
-  });
-}
 /* amounts follow the store the user bought through (8.875% CA tax) */
 function amountsFor(key, priceOverride){
   const p = PRODUCTS[key];
@@ -1408,6 +1386,12 @@ function amountsFor(key, priceOverride){
 function orderAmounts(){ return amountsFor(state.orderKey, state.orderPrice); }
 /* order card spec follows whichever product/address/payment the user picked;
    the third row entry marks a field as editable (pencil button) */
+/* the variant actually chosen on the PDP, falling back to each group's default */
+function variantOf(key){
+  const p = PRODUCTS[key]; if(!p) return '';
+  const sel = (state.picked || {})[key] || {};
+  return p.specs.map((g,gi)=> sel[gi] || g.options[0].name).join(' · ') + ' · Qty: 1';
+}
 function orderSpec(){
   const p = PRODUCTS[state.orderKey];
   const a = orderAmounts();
@@ -1417,7 +1401,8 @@ function orderSpec(){
     cap:'Review and confirm your purchase',
     lead:'Migoo has prepared this order for you:',
     rows:[
-      ['Deliver to', state.addr.short, 'addr'],
+      ['Deliver to', state.addr ? state.addr.short
+        : {html:'<span class="todo">Add delivery address</span>'}, 'addr'],
       ['Shipping','Standard (1-2 days) · FREE'],
       ['Payment', {html:`<span class="pm-chip">${payLogo(state.pay.logo,26,18)}<span>${esc(state.pay.label)}</span></span>`}, 'pay']
     ],
@@ -1466,7 +1451,17 @@ function productCardEl(key, onTap){
 }
 
 /* list-card "Buy with Migoo" tag — starts the chat purchase without opening the PDP */
+/* the eBay-handoff path has no chat checkout of its own: an agentic item bought
+   from it continues in the standalone returning flow */
+function toAgenticPath(){
+  if(state.userType !== 'nonag') return;
+  state.userType = 'stripe';
+  document.querySelectorAll('.devbar .seg button').forEach(n=>n.classList.toggle('on', n.dataset.user==='stripe'));
+  buildStepList();
+  gotoStep(0);                                // rebuild the chat baseline (closes the PDP)
+}
 function cardBuyAction(key){
+  toAgenticPath();
   if(state.step < 1){
     state.entry = 'pdp';
     state.orderKey = key;
@@ -1538,7 +1533,7 @@ function orderMsg(spec, onCta){
       <div class="thumb">${art(p.art)}</div>
       <div class="mid">
         <div class="nm">${esc(p.shortName)}</div>
-        <div class="sub">${esc(p.variant)}</div>
+        <div class="sub">${esc(variantOf(spec.product))}</div>
       </div>
       <div class="amt">${esc(spec.itemPrice || p.price)}</div>
     </div>
@@ -1548,7 +1543,7 @@ function orderMsg(spec, onCta){
     <div class="total"><span class="k">${esc(spec.totalLabel)}</span><span class="v">${esc(spec.total)}</span></div>`;
   card.querySelectorAll('.pen').forEach(pen=>pen.addEventListener('click', e=>{
     e.stopPropagation();
-    if(state.step > 3){ toast('This order is already paid.'); return; }
+    if(paid()){ toast('This order is already paid.'); return; }
     if(state.paying){ toast('Payment in progress — hold on a moment.'); return; }
     if(pen.dataset.edit === 'addr') editAddress(); else editPayment();
   }));
@@ -1563,9 +1558,15 @@ function orderMsg(spec, onCta){
 
 /* verified → inline "Processing…" on the pay button, then the payment result */
 function payProcessing(){
+  const w = window.__orderWrap;
+  if(w && w.classList.contains('stale')){    // expired or superseded — this order can't be charged
+    state.paying = false;
+    toast('This order has expired — tap “Create a new order”.');
+    return;
+  }
   const b = window.__orderBtn;
   if(b){ b.disabled = true; b.classList.add('processing'); b.textContent = 'Processing…'; }
-  state.timers.push(setTimeout(()=>advance(4), 1100));
+  state.timers.push(setTimeout(()=>advance(stepAt(S_PAID)), 1100));
 }
 
 /* paid → the order card flips into a receipt (Stripe-style) with View Details */
@@ -1602,7 +1603,7 @@ function openOrderDetails(){
       <div class="thumb">${art(p.art)}</div>
       <div class="mid">
         <div class="nm">${esc(p.shortName)}</div>
-        <div class="sub">${esc(p.variant)}</div>
+        <div class="sub">${esc(variantOf(state.orderKey))}</div>
       </div>
     </div>
     <div class="od-sec">Summary</div>
@@ -2016,12 +2017,16 @@ $('#psBody').addEventListener('click', e=>{
     }
     state.savedSel='mc4444'; state.psSel='saved';
     if(state.pay.id === 'st-none'){
-      // first card bound → it becomes the order's method and pays right away
       state.pay = {id:'mc4444', logo:'mastercard', label:'···· 4444', payName:'Mastercard ···· 4444'};
-      refreshOrderPay();
       state.psMode = 'edit';
       $('#paysheet').classList.remove('on');
-      state.paying = true;
+      refreshOrderPay();
+      if(state.bindThen){                 // bound while setting the account up — just record it
+        const done = state.bindThen; state.bindThen = null;
+        done();
+        return;
+      }
+      state.paying = true;                // bound from checkout — this card pays the order now
       payProcessing();
       return;
     }
@@ -2068,6 +2073,7 @@ function openEnrollSheet(){
 /* PIN confirmed → wallet bound + Face ID enrolled in one go; this payment verifies with it */
 function completeRegistration(){
   const ob = window.__orderBtn; if(ob) ob.disabled = true;   // payment chain in flight — no second tap
+  state.paying = true;        // …and freeze pencils, chips and the countdown for the whole chain
   if(!PAY_METHODS.some(m=>m.id==='sp6789')) PAY_METHODS.unshift({...INIT_METHODS[0]});
   state.savedSel = 'sp6789'; state.psSel = 'saved';
   state.pay = {id:'sp6789', logo:'shopeepay', label:'···· 6789', payName:'Shopee Pay'};
@@ -2189,7 +2195,7 @@ function startOrderCountdown(wrap){
   const el = wrap.querySelector('.order-timer');
   if(!el) return;
   const tick = ()=>{
-    if(state.step > 3){ stopOrderCountdown(); el.classList.add('hidden'); return; }  // paid — timer irrelevant
+    if(paid()){ stopOrderCountdown(); el.classList.add('hidden'); return; }  // paid — timer irrelevant
     if(state.paying) return;   // payment in flight — the order can't expire mid-verification
     const left = state.orderDeadline - Date.now();
     if(left <= 0){ expireOrder(wrap); return; }
@@ -2201,7 +2207,9 @@ function startOrderCountdown(wrap){
 }
 function expireOrder(wrap){
   stopOrderCountdown();
+  closeAddrSheet(); closeSPM(); closePaySheet();     // any editor bound to this order is void now
   wrap.classList.add('stale');
+  wrap.querySelectorAll('button').forEach(b=>b.disabled = true);   // dead card: really dead, not just greyed
   const el = wrap.querySelector('.order-timer');
   if(el){ el.textContent = 'Expired'; el.classList.add('expired'); }
   aiMsg([{t:'p', text:'⏰ This order has expired — orders stay valid for 30 minutes. Want me to create a fresh one?'}]);
@@ -2217,10 +2225,18 @@ function expireOrder(wrap){
 function issueOrderCard(){
   state.addrEditing = false;       // a fresh card voids any half-finished edit session
   removeFollowups();               // stale edit chips die with the card they belonged to
-  if(window.__orderWrap) window.__orderWrap.classList.add('stale');
+  if(window.__orderWrap){
+    window.__orderWrap.classList.add('stale');
+    window.__orderWrap.querySelectorAll('button').forEach(b=>b.disabled = true);
+  }
   // main-flow quick pay: Face ID in place, then a success message in the chat
   const {wrap, btn} = orderMsg(orderSpec(), (b)=>{
-    if(state.step > 3){ b.disabled = true; return; }   // already paid — never pay twice
+    if(paid()){ b.disabled = true; return; }   // already paid — never pay twice
+    if(!state.addr){                                   // nothing to ship to yet
+      toast('Add a delivery address first.');
+      openAddrSheet();
+      return;
+    }
     b.disabled = true;
     state.paying = true;                               // freeze the countdown while verification runs
     // standalone paths: new user binds a card first; returning pays straight away (no challenge)
@@ -2362,14 +2378,18 @@ function refreshRow(editKey, html){
   v.innerHTML = html;
   v.classList.remove('flash'); void v.offsetWidth; v.classList.add('flash');
 }
-function refreshOrderAddr(){ refreshRow('addr', esc(state.addr.short)); }
+function refreshOrderAddr(){
+  refreshRow('addr', state.addr ? esc(state.addr.short)
+                                : '<span class="todo">Add delivery address</span>');
+}
 function refreshOrderPay(){
+  if(paid()) return;                 // settled order — a receipt is never rewritten
   refreshRow('pay', `<span class="pm-chip">${payLogo(state.pay.logo,26,18)}<span>${esc(state.pay.label)}</span></span>`);
   const b = window.__orderBtn;
-  if(b){ b.textContent = `Pay with ${state.pay.payName}`; b.disabled = false; }
+  if(b){ b.textContent = `Pay with ${state.pay.payName}`; b.disabled = state.paying; }
 }
 
-/* ---- half-screen Shopee address editor (the "Addr sheet" path) ---- */
+/* ---- half-screen address editor (all paths edit the address here) ---- */
 /* Two levels: the address book list (with a Shopee-import banner and a "+"
    to add), then the Shopee-style Edit Address form for the tapped entry. */
 function openAddrSheet(){ renderAS('list'); $('#addrsheet').classList.add('on'); }
@@ -2383,7 +2403,7 @@ function renderAS(mode, target){
         <span class="t">My Addresses</span>
         <button class="x plus" id="asAdd">＋</button>
       </div>
-      <div class="as-import" id="asImport">🛍 Import your addresses from Shopee</div>
+      <div class="as-import" id="asImport">🛍 Import your addresses from ${standalone() ? esc(state.orderStore||'Amazon') : 'Shopee'}</div>
       <div id="asList">
         ${state.addrBook.map((a,i)=>`
         <div class="as-item" data-i="${i}">
@@ -2391,14 +2411,14 @@ function renderAS(mode, target){
           <div class="l2">${esc(a.street)}</div>
           <div class="l3">${esc(a.area)}</div>
           <div class="ichips">
-            ${a===SAVED_ADDR?'<span class="ic on">Default</span><span class="ic">Pickup Address</span><span class="ic">Return Address</span>':''}
+            ${a===state.defaultAddr?'<span class="ic on">Default</span>':''}${a.pickup?'<span class="ic">Pickup Address</span>':''}${a.ret?'<span class="ic">Return Address</span>':''}
             ${a===cur?'<span class="ic use">In use on this order</span>':''}
           </div>
         </div>`).join('')}
       </div>`;
     $('#asX').addEventListener('click', closeAddrSheet);
     $('#asAdd').addEventListener('click', ()=>renderAS('new'));
-    $('#asImport').addEventListener('click', ()=>toast('Addresses synced from Shopee.'));
+    $('#asImport').addEventListener('click', ()=>toast(`Addresses synced from ${standalone() ? (state.orderStore||'Amazon') : 'Shopee'}.`));
     document.querySelectorAll('#asList .as-item').forEach(it=>{
       it.addEventListener('click', ()=>renderAS('edit', state.addrBook[+it.dataset.i]));
     });
@@ -2440,10 +2460,10 @@ function renderAS(mode, target){
       </svg>
     </div>
     <div class="as-card">
-      <div class="as-tgl"><span>Set as Default Address</span><span class="tg${(!isNew && target===SAVED_ADDR)?' on':''}"></span></div>
-      <div class="as-tgl"><span>Set as Pickup Address</span><span class="tg"></span></div>
-      <div class="as-tgl"><span>Set as Return Address</span><span class="tg"></span></div>
-      <div class="as-tgl label"><span>Label As:</span><span class="as-chips"><span class="as-chip">Work</span><span class="as-chip on">Home</span></span></div>
+      <div class="as-tgl"><span>Set as Default Address</span><span class="tg${(!isNew && target===state.defaultAddr)?' on':''}"></span></div>
+      <div class="as-tgl"><span>Set as Pickup Address</span><span class="tg${(!isNew && target.pickup)?' on':''}"></span></div>
+      <div class="as-tgl"><span>Set as Return Address</span><span class="tg${(!isNew && target.ret)?' on':''}"></span></div>
+      <div class="as-tgl label"><span>Label As:</span><span class="as-chips">${['Work','Home'].map(l=>`<span class="as-chip${(((!isNew && target.label) || 'Home')===l?' on':'')}">${l}</span>`).join('')}</span></div>
     </div>
     <div class="as-foot">
       ${isNew ? '' : '<button class="as-del" id="asDel">Delete Address</button>'}
@@ -2468,7 +2488,12 @@ function renderAS(mode, target){
     });
   } else {
     $('#asDel').addEventListener('click', ()=>{
+      if(state.addrBook.length <= 1){ toast('You need to keep at least one saved address.'); return; }
+      if((state.addr || SAVED_ADDR) === target){
+        toast('This address is on your current order — switch the order to another one first.'); return;
+      }
       state.addrBook = state.addrBook.filter(x=>x!==target);
+      if(state.defaultAddr === target) state.defaultAddr = state.addrBook[0];
       toast('Address deleted.');
       renderAS('list');
     });
@@ -2482,57 +2507,43 @@ function renderAS(mode, target){
       return;
     }
     // editing an existing entry: submitting applies it to this order
+    saveAddrFlags(target);
     if(state.addr === target){ closeAddrSheet(); return; }   // no change — close silently
+    const w = window.__orderWrap;
+    if(paid() || (w && w.classList.contains('stale'))){
+      closeAddrSheet();
+      toast(paid() ? 'This order is already paid — the address is locked.'
+                           : 'That order expired — create a fresh one, then set the address.');
+      return;
+    }
+    const wasEmpty = !state.addr;
     state.addr = target;
     closeAddrSheet();
     after(()=>{
-      if(state.step > 3) return;
-      aiMsg([{t:'p', text:'✅ Address updated on your order.'}]);
+      if(paid()) return;
+      aiMsg([{t:'p', text:`✅ Address ${wasEmpty ? 'added to' : 'updated on'} your order.`}]);
       refreshOrderAddr();
     }, 400);
   });
+}
+/* the address form's switches are state, not decoration — read them back on Submit */
+function saveAddrFlags(a){
+  if(!a) return;
+  const tg = [...document.querySelectorAll('#asBody .as-tgl .tg')];
+  if(tg.length >= 3){
+    if(tg[0].classList.contains('on')) state.defaultAddr = a;
+    else if(state.defaultAddr === a)   state.defaultAddr = null;
+    a.pickup = tg[1].classList.contains('on');
+    a.ret    = tg[2].classList.contains('on');
+  }
+  const chip = document.querySelector('#asBody .as-chips .as-chip.on');
+  if(chip) a.label = chip.textContent.trim();
 }
 function closeAddrSheet(){ $('#addrsheet').classList.remove('on'); }
 $('#asDim').addEventListener('click', closeAddrSheet);
 
 function editAddress(){
-  if(state.userType === 'sheet'){ openAddrSheet(); return; }   // form-sheet variant path
-  if(state.addrEditing) return;                        // one prompt at a time
-  state.addrEditing = true;
-  const cur = state.addr || SAVED_ADDR;
-  // offer whichever saved address differs from the current one
-  const target = (cur === NEW_ADDR) ? SAVED_ADDR : NEW_ADDR;
-  userMsg('Let me see the delivery address');          // the pencil speaks for the user
-  after(()=>{
-    aiMsg([
-      {t:'p', text:'Sure — this order is currently set to deliver to:'},
-      {t:'ul', items:['Jack Tate', cur.address, cur.phone]},
-      {t:'p', text:'Keep this address, or send me a new one?'}
-    ]);
-    after(()=>{
-      followupMsg([
-        {label:'Keep this address', onTap:()=>{
-          state.addrEditing = false;
-          userMsg('Keep this address');
-          after(()=>aiMsg([{t:'p', text:'Got it — no changes made. You can pay whenever you’re ready.'}]), 500);
-        }},
-        {label:'Use a different address', onTap:()=>{
-          after(()=>{
-            aiMsg([{t:'p', text:'Sure — send me the new delivery address. Remember to include: full name, street address, city, state/region and phone number.'}]);
-            collectAddress(target, ()=>{
-              state.addrEditing = false;
-              if(state.step > 3) return;               // paid meanwhile — discard the edit
-              after(()=>{
-                if(state.step > 3) return;             // re-check: payment may land during the delay
-                aiMsg([{t:'p', text:'✅ All details received — your order now ships to the new address.'}]);
-                refreshOrderAddr();
-              }, 600);
-            });
-          }, 250);
-        }}
-      ]);
-    }, 700);
-  }, 400);
+  openAddrSheet();                 // every path: the two-level address-book sheet
 }
 function editPayment(){
   if(state.pay.id === 'sp-new'){ openEnrollSheet(); return; }   // not registered yet — same first-time flow
@@ -2571,7 +2582,8 @@ function closeSPM(){ $('#spmsheet').classList.remove('on'); }
 $('#spmDim').addEventListener('click', closeSPM);
 function renderSPM(){
   const T = parseFloat(orderAmounts().total.slice(1));
-  const inst = n => '$' + ((T/n)*1.025).toFixed(2);
+  const RATE = 0.0245;                       // the 2.45%/month printed on every plan row
+  const inst = n => '$' + ((T * RATE) / (1 - Math.pow(1 + RATE, -n))).toFixed(2);
   const sel = state.spmSel;
   const ck = id => sel===id
     ? `<span class="spm-check on"><svg width="12" height="12" viewBox="0 0 14 14"><path d="M2.5 7.5l3 3 6-6.5" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>`
@@ -2654,6 +2666,13 @@ function renderSPM(){
   $('#spmConfirm').addEventListener('click', ()=>{
     const next = SPM_PAY[state.spmSel];
     if(!next || next.id === state.pay.id){ closeSPM(); return; }   // nothing changed — cancel silently
+    const w = window.__orderWrap;
+    if(paid() || state.paying || (w && w.classList.contains('stale'))){
+      closeSPM();
+      toast(paid() ? 'This order is already paid — the payment method is locked.'
+                           : 'This order is no longer editable.');
+      return;
+    }
     state.pay = {...next};
     closeSPM();
     aiMsg([{t:'p', text:`✅ Payment method updated — this order will pay with ${next.payName}.`}]);
@@ -2751,7 +2770,7 @@ function openPDP(key){
       <div class="sup-logo">${storeLogo(r.store)}</div>
       <div class="sup-mid">
         <div class="sup-price">${esc(r.price)}</div>
-        <div class="sup-sub"><span class="star">★</span> ${esc(r.rating)} <span class="bar">|</span> <span class="lnk" data-view="1">View in ${esc(STORE_META[r.store].name)} ↗</span></div>
+        <div class="sup-sub"><span class="star">★</span> ${esc(r.rating)}${r.store === 'shopee' ? '' : ` <span class="bar">|</span> <span class="lnk" data-view="1">View in ${esc(STORE_META[r.store].name)} ↗</span>`}</div>
       </div>
       <button class="sup-btn" data-act="${r.act}" data-store="${esc(STORE_META[r.store].name)}" data-price="${(parseFloat(r.price.slice(1))).toFixed(2)}">${r.act==='buy'?'Buy':'View'}</button>
     </div>`).join('');
@@ -2788,6 +2807,9 @@ $('#pdpSpecs').addEventListener('click', e=>{
   group.querySelectorAll('.sw').forEach(n=>n.classList.remove('on'));
   sw.classList.add('on');
   const gi = group.dataset.g;
+  if(currentPdpKey){                                  // remember it — the order line reads this back
+    (state.picked[currentPdpKey] = state.picked[currentPdpKey] || {})[gi] = sw.dataset.c;
+  }
   const val = document.querySelector(`.spec-val[data-g="${gi}"]`);
   if(val) val.textContent = sw.dataset.c;
   if(gi === '0'){
@@ -2820,7 +2842,7 @@ let state = { step:0, timers:[], entry:null, orderKey:'bag3', addr:null,
               savedSel:'sp6789', psSel:'saved', psView:'main',
               spEnrolled:false, pinMode:null, pinBuf:'', userType:'new', addrSent:false,
               orderTimer:null, orderDeadline:0, orderStore:'Shopee', orderPrice:null,
-              ckProt:false, ckView:'form' };
+              ckProt:false, ckView:'form', picked:{}, defaultAddr:null };
 /* content delay — when jumping steps it fires immediately so the step's
    full content is on screen */
 function after(fn, ms){
@@ -2834,6 +2856,10 @@ function then(fn, ms){
   state.timers.push(setTimeout(fn, ms));
 }
 function clearTimers(){ state.timers.forEach(clearTimeout); state.timers=[]; }
+/* step positions differ per path (the collect step shifts everything down by one),
+   so the flow is addressed by step object, never by a hardcoded index */
+function stepAt(stepObj){ return curFlow().indexOf(stepObj); }
+function paid(){ return state.step > stepAt(S_CARD); }
 function advance(i){
   if(instant) return;
   state.step = i;
@@ -2868,7 +2894,10 @@ const S_LIST = { label:'Product list reply', run(){
           }}]);
         }, 900);
       }
-      setPending('Buy the third bag for me', ()=>{ state.entry='typed'; state.orderKey='bag3'; next(); });
+      setPending('Buy the third bag for me', ()=>{
+        toAgenticPath();
+        state.entry='typed'; state.orderKey='bag3'; next();
+      });
   }};
 const S_REQ = { label:'Order request', run(){
       closePDP();
@@ -2881,20 +2910,20 @@ const S_REQ = { label:'Order request', run(){
 const S_CREATE = { label:'Creating order', run(){
       removeFollowups();
       setPending(null);
-      // the order is created straight from the saved delivery address;
-      // the user edits it on the order card (Deliver to pencil) if needed
-      if(!state.addr) state.addr = SAVED_ADDR;
+      // returning users order straight from their saved address; a new user
+      // either filled it in during the collect step or fills it on the card
+      if(!state.addr && !newUser()) state.addr = SAVED_ADDR;
       after(()=>{
         aiMsg([{t:'p', text:'Great — creating the order with your saved delivery address, this may take a moment.'}]);
         const w = workingMsg();
         $('#taskBadge').classList.add('on');
-        then(()=>{ w.remove(); advance(3); }, 2500);
+        then(()=>{ w.remove(); advance(stepAt(S_CARD)); }, 2500);
       }, 700);
   }};
 const S_CARD = { label:'Order card · pay CTA', run(){
       thread.querySelectorAll('.working').forEach(n=>n.remove());
       $('#taskBadge').classList.add('on');
-      if(!state.addr) state.addr = SAVED_ADDR;
+      if(!state.addr && !newUser()) state.addr = SAVED_ADDR;
       issueOrderCard();
   }};
 const S_PAID = { label:'Payment success (chat)', run(){
@@ -2902,6 +2931,7 @@ const S_PAID = { label:'Payment success (chat)', run(){
       setPending(null);            // drop any armed edit — the order is paid
       removeFollowups();           // pending edit chips die with the payment
       state.addrEditing = false;
+      state.paying = false;        // payment settled — later chips/pencils must not be blocked
       stopOrderCountdown();
       flipToReceipt();             // card becomes the receipt (Purchase Complete + View Details)
       aiMsg([{t:'p', text:`✅ Payment successful! ${orderAmounts().total} paid with ${state.pay.payName}.`}]);
@@ -2933,11 +2963,87 @@ const S_RECAP = { label:'Order placed recap', run(){
         ]);
       }, 700);
   }};
+/* new user, conversational variant: Migoo asks for the two things it is missing —
+   the address arrives as one typed message, the method as a follow-up choice */
+const S_COLLECT = { label:'Collect address + payment', run(){
+      removeFollowups();
+      setPending(null);
+      after(()=>{
+        aiMsg([
+          {t:'p', text:'You’re new here, so I don’t have your details on file yet. Two things and I can place this order:'},
+          {t:'ul', items:[
+            'Delivery address — full name, street, city, state/region and phone number',
+            'A payment method Migoo can charge on your behalf'
+          ]},
+          {t:'p', text:'Send me the address and I’ll follow up with the payment options.'}
+        ]);
+        after(()=>setPending(
+          'Jack Tate, 535 Mission St, Floor 14, San Francisco, CA 94105, +1 (415) 555-6432',
+          ()=>{
+            state.addr = SAVED_ADDR;
+            after(()=>{
+              aiMsg([{t:'p', text:`Got it — shipping to ${SAVED_ADDR.short.replace('Jack Tate, ','')}. Now, how would you like to pay?`}]);
+              after(()=>followupMsg(payChoices()), 650);
+            }, 650);
+          }), 700);
+      }, 600);
+  }};
+/* the methods a brand-new account can start with, per environment */
+function payChoices(){
+  if(!standalone()) return [
+    {label:'ShopeePay', onTap:()=>pickPay('ShopeePay',
+      {id:'sp-new', logo:'shopeepay', label:'ShopeePay', payName:'Shopee Pay'})},
+    {label:'SPayLater', onTap:()=>pickPay('SPayLater',
+      {id:'spl', logo:'spaylater', label:'SPayLater', payName:'SPayLater'})}
+  ];
+  return [
+    {label:'Add a card', onTap:()=>{
+      userMsg('Add a card');
+      state.bindThen = ()=>confirmPay('Mastercard ···· 4444');
+      after(()=>{ state.psMode = 'edit'; renderPS('newcard'); $('#paysheet').classList.add('on'); }, 500);
+    }},
+    {label:'Link', onTap:()=>pickPay('Link', {id:'link', logo:'link', label:'Link', payName:'Link'})},
+    {label:'Cash App Pay', onTap:()=>pickPay('Cash App Pay',
+      {id:'cashapp', logo:'cashapp', label:'Cash App', payName:'Cash App'})}
+  ];
+}
+function pickPay(label, pay){ userMsg(label); state.pay = pay; confirmPay(label); }
+function confirmPay(label){
+  after(()=>{
+    aiMsg([{t:'p', text:`✅ ${label} saved for this purchase. Creating your order now…`}]);
+    then(()=>next(), 800);
+  }, 600);
+}
 const S_MEMORY = { label:'Memory added', run(){
       removeFollowups();
       setPending(null);
       userMsg('Yes, remember it');
       after(()=>memoryMsg(), 600);
+      // arm the lookup query so typing it advances to the order-lookup step
+      after(()=>setPending(lookupQuery(), ()=>next()), 1400);
+  }};
+function lookupQuery(){
+  const brand = PRODUCTS[state.orderKey || 'bag3'].name.split(' ')[0];
+  return `What’s the status of my ${brand} bag’s order?`;
+}
+const S_LOOKUP = { label:'Order lookup', run(){
+      removeFollowups();
+      setPending(null);
+      userMsg(lookupQuery());
+      after(()=>{
+        aiMsg([{t:'p', text:`Found it — order ${ORDER_NO} is confirmed and on its way. Here’s the receipt; tap View Details for the full breakdown:`}]);
+        const src = window.__orderWrap;
+        if(src){
+          // bring the receipt card back into the chat as its own message
+          const clone = src.cloneNode(true);
+          clone.classList.remove('stale');
+          const lead = clone.querySelector('.lead'); if(lead) lead.remove();
+          clone.querySelectorAll('.flash').forEach(n=>n.classList.remove('flash'));
+          const btn = clone.querySelector('.cta');
+          if(btn){ const nb = btn.cloneNode(true); nb.addEventListener('click', openOrderDetails); btn.replaceWith(nb); }
+          add(clone);
+        }
+      }, 700);
   }};
 /* two experience paths: a first-time user registers Face ID for Agentic
    Checkout (PIN-confirmed) right at payment; a returning user pays via Face ID */
@@ -2954,24 +3060,32 @@ const S_EDONE = { label:'Payment success (eBay)', run(){
     renderEB('done');
 }};
 const FLOWS = {
-  new:    [S_LIST, S_REQ, S_CREATE, S_CARD, S_PAID, S_RECAP, S_MEMORY],
-  ret:    [S_LIST, S_REQ, S_CREATE, S_CARD, S_PAID, S_RECAP, S_MEMORY],
-  sheet:  [S_LIST, S_REQ, S_CREATE, S_CARD, S_PAID, S_RECAP, S_MEMORY],
-  stripe: [S_LIST, S_REQ, S_CREATE, S_CARD, S_PAID, S_RECAP, S_MEMORY],
-  stnew:  [S_LIST, S_REQ, S_CREATE, S_CARD, S_PAID, S_RECAP, S_MEMORY],
+  newchat:[S_LIST, S_REQ, S_COLLECT, S_CREATE, S_CARD, S_PAID, S_RECAP, S_MEMORY, S_LOOKUP],
+  new:    [S_LIST, S_REQ, S_CREATE, S_CARD, S_PAID, S_RECAP, S_MEMORY, S_LOOKUP],
+  ret:    [S_LIST, S_REQ, S_CREATE, S_CARD, S_PAID, S_RECAP, S_MEMORY, S_LOOKUP],
+  stchat: [S_LIST, S_REQ, S_COLLECT, S_CREATE, S_CARD, S_PAID, S_RECAP, S_MEMORY, S_LOOKUP],
+  stnew:  [S_LIST, S_REQ, S_CREATE, S_CARD, S_PAID, S_RECAP, S_MEMORY, S_LOOKUP],
+  stripe: [S_LIST, S_REQ, S_CREATE, S_CARD, S_PAID, S_RECAP, S_MEMORY, S_LOOKUP],
   nonag:  [S_LIST, S_PDP2, S_EBUY, S_EDONE]
 };
 function curFlow(){ return FLOWS[state.userType]; }
 /* standalone migoo shell paths (outside the Shopee frame) */
-function standalone(){ return state.userType === 'stripe' || state.userType === 'stnew' || state.userType === 'nonag'; }
+function standalone(){
+  return ['stripe','stnew','stchat','nonag'].includes(state.userType);
+}
+/* a brand-new user has neither an address nor a payment method on file */
+function newUser(){ return ['new','stnew','newchat','stchat'].includes(state.userType); }
+/* …and either completes them in the chat, or straight on the order card */
+function chatSetup(){ return state.userType === 'newchat' || state.userType === 'stchat'; }
 
 const NOTES = {
-  new:'New user: tapping pay opens the "Register your Face ID for Agentic Checkout" sheet (payment sequence overview) → confirm with the ShopeePay PIN → registration done, and this payment verifies with Face ID right away. Future payments use Face ID directly.',
-  ret:'Returning user: Face ID is already enrolled, so "Pay with Shopee Pay" verifies with Face ID and confirms right in the chat. The payment pencil opens the Stripe-style sheet; the mail banner swipes up to dismiss. Tip: the 2nd bag is non-agentic — buying it hands off to the Shopee Checkout page instead of the chat.',
-  sheet:'Address-sheet variant: same returning-user flow, but the Deliver-to pencil opens the two-level Shopee address book (My Addresses list → Edit Address form) instead of the chat dialogue. Submit applies the address to the order in place.',
+  newchat:'New user, collected in the chat (in-Shopee): Migoo has no address and no payment method on file, so before creating the order it asks for both — the address arrives as one typed message, the method as a follow-up choice (ShopeePay / SPayLater). The order card is then issued complete. Paying still runs the first-time Face ID registration.',
+  new:'New user, completed on the card (in-Shopee): the order card is issued with an empty Deliver-to row ("Add delivery address") and an unset "Set up ShopeePay" payment row. Tapping Pay without an address prompts for it; the Deliver-to pencil opens the address book, and paying opens the Face ID registration sheet → PIN → Face ID.',
+  ret:'Returning user: Face ID is already enrolled, so "Pay with Shopee Pay" verifies with Face ID and confirms right in the chat. The Deliver-to pencil opens the two-level address book (My Addresses → Edit Address — Submit refreshes the card in place); the payment pencil opens the Shopee Payment Method sheet. The mail banner swipes up to dismiss.',
   stripe:'Category 2 — returning user (standalone shell, Amazon/eBay merchants): a card is already bound (···· 6789), so tapping Pay charges it straight away — Processing → receipt, no challenge, just like the in-Shopee flow. The Payment pencil opens the Choose-payment sheet to switch methods.',
-  stnew:'Category 2 — new user (standalone shell): no payment method yet — the Payment row shows an empty "Add card" state. Tapping Pay or the pencil opens the Stripe card form; adding the card binds it, updates the order in place and pays immediately.',
-  nonag:'Category 3 — item without agentic checkout (standalone migoo shell): the 2nd bag carries no Buy with Migoo tag. Typing to buy it gets an explanation plus the product card; the PDP CTA is "Buy at eBay", which opens an iOS in-app browser and completes the purchase on eBay (item → checkout → order confirmed).'
+  stchat:'Category 2 — new user, collected in the chat (standalone shell): no address and no card on file, so Migoo asks for both before creating the order. "Add a card" opens the Stripe form and binds the card without charging; the order card is then issued complete and Pay charges it normally.',
+  stnew:'Category 2 — new user, completed on the card (standalone shell): the card is issued with an empty Deliver-to row and an "Add card" payment row. No address means Pay prompts for one first; once set, tapping Pay or the payment pencil opens the Stripe card form, and adding the card binds it and pays immediately.',
+  nonag:'Category 3 — item without agentic checkout (standalone migoo shell): the 2nd bag carries no Buy with Migoo tag. Typing to buy it gets an explanation plus the product card; the PDP CTA is "Buy at eBay", which opens an iOS in-app browser and completes the purchase on eBay (item → checkout → order confirmed). In the buybox, Buy rows are offers that DO support agentic checkout — tapping one continues in the chat flow; View rows open that merchant\'s site in the browser.'
 };
 
 function next(){
@@ -2998,6 +3112,10 @@ function clearShell(){
   state.spmSel = null;
   state.asEditTarget = null;
   state.addrBook = [SAVED_ADDR, NEW_ADDR, OFFICE_ADDR];
+  state.addrBook.forEach(a=>{ a.pickup = false; a.ret = false; a.label = 'Home'; });
+  SAVED_ADDR.pickup = SAVED_ADDR.ret = true;    // the account address carries all three roles
+  state.defaultAddr = SAVED_ADDR;
+  state.picked = {};                            // PDP variant choices belong to one run
   $('#toast').classList.remove('on');
   closePDP();
   currentPdpKey = null;
@@ -3009,24 +3127,26 @@ function clearShell(){
   state.qbKey = 'bag2'; state.qbPrice = null;
   state.paying = false;
   state.addr = null;
-  state.pay = (state.userType === 'stnew')
+  state.pay = (state.userType === 'stnew' || state.userType === 'stchat')
     ? {id:'st-none', logo:'newcard', label:'Add card', payName:'Card'}
     : (standalone())
     ? {id:'st6789', logo:'stripe', label:'···· 6789', payName:'Card ···· 6789'}
-    : (state.userType === 'new')
-    ? {id:'sp-new',  logo:'shopeepay', label:'ShopeePay',  payName:'Shopee Pay'}
+    : (state.userType === 'new' || state.userType === 'newchat')
+    ? {id:'sp-new',  logo:'shopeepay', label:'Set up ShopeePay',  payName:'Shopee Pay'}
     : {id:'sp6789', logo:'shopeepay', label:'···· 6789', payName:'Shopee Pay'};
-  state.savedSel = (state.userType === 'stnew') ? null : (standalone()) ? 'st6789' : 'sp6789'; state.psSel = 'saved';
+  state.savedSel = (state.userType === 'stnew' || state.userType === 'stchat') ? null
+                 : (standalone()) ? 'st6789' : 'sp6789'; state.psSel = 'saved';
+  state.bindThen = null;
   state.addrEditing = false;
   state.addrSent = false;
-  state.spEnrolled = (state.userType === 'ret' || state.userType === 'sheet' || standalone());
+  state.spEnrolled = (state.userType === 'ret' || standalone());
   state.psMode = 'edit';
   state.ckProt = false; state.ckView = 'form';
   closeCheckout();
   document.querySelector('.phone').classList.toggle('assistant', !standalone()); state.pinMode = null; state.pinBuf = '';
-  PAY_METHODS = (state.userType === 'stnew') ? []
+  PAY_METHODS = newUser() ? []
               : (standalone()) ? STRIPE_METHODS.map(m=>({...m}))
-              : (state.userType === 'new') ? [] : INIT_METHODS.map(m=>({...m}));
+              : INIT_METHODS.map(m=>({...m}));
 }
 
 function reset(){
@@ -3075,13 +3195,25 @@ $('#expireBtn').addEventListener('click', ()=>{
 });
 
 /* PDP buy — entry point a; shared by the CTA and supplier Buy buttons.
-   The flow is decided by the item, not the path: agentic items check out
-   through the migoo chat; non-agentic items hand off to the Shopee checkout page. */
+   Buybox rows decide by their button: Buy = agentic checkout with that offer,
+   View = the merchant's site in the in-app browser. The main CTA follows the
+   item: non-agentic items hand off to the merchant checkout instead. */
 function pdpBuyAction(store, price){
   const key = currentPdpKey || 'bag2';
-  if(!PRODUCTS[key].agentic && standalone()){
-    // non-agentic item on the Stripe path: buy it on eBay inside the in-app browser
+  if(!store && !PRODUCTS[key].agentic && standalone()){
+    // main CTA on a non-agentic item: buy it on eBay inside the in-app browser
+    removeFollowups(); setPending(null);      // the offer is taken — retire the chat's buy prompts
     openEbay(key);
+    return;
+  }
+  if(store && state.userType === 'nonag'){
+    // buybox Buy on the handoff path: this offer supports agentic checkout
+    toAgenticPath();
+    state.entry = 'pdp';
+    state.orderKey = key;
+    state.orderStore = store;
+    state.orderPrice = (price != null) ? price : null;
+    next();                                   // → step 1 (order request)
     return;
   }
   if(state.step < 1){
