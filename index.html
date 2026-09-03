@@ -631,7 +631,6 @@ body{
 .qf-h{font-size:14px; font-weight:700; color:var(--ink)}
 .qf-s{font-size:11.5px; color:var(--ink-3); margin-top:4px; line-height:1.45}
 .qf-box{background:#fff; border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-top:9px; font-size:12.5px; line-height:1.5; color:var(--ink)}
-.qf-box.ph{color:var(--ink-4)}
 .qf-row{display:flex; justify-content:flex-end; margin-top:9px}
 .asf{padding:10.5px 0; border-bottom:1px solid var(--line); position:relative}
 .asf:last-child{border-bottom:0}
@@ -640,8 +639,6 @@ body{
 .asf .v.muted{color:var(--ink-4)}
 .asf.chev .c{position:absolute; right:2px; top:50%; transform:translateY(-50%); color:var(--ink-4); font-size:16px}
 .asf .v.flash{animation:asFlash .9s ease; border-radius:6px}
-.as-map{border-radius:14px; overflow:hidden; margin-bottom:10px; line-height:0}
-.as-map svg{width:100%; height:auto}
 .as-tgl{display:flex; align-items:center; justify-content:space-between; padding:11px 0; border-bottom:1px solid var(--line); font-size:13.5px; color:var(--ink)}
 .as-tgl:last-child{border-bottom:0}
 .as-tgl .tg{width:44px; height:26px; border-radius:13px; background:var(--line-2); position:relative; cursor:pointer; transition:background .2s ease; flex:0 0 44px}
@@ -2430,29 +2427,19 @@ function renderAS(mode, target){
       <span class="t">${isNew ? 'New Address' : 'Edit Address'}</span>
       <span style="width:26px"></span>
     </div>
+    ${isNew ? `
     <div class="as-card quickfill">
       <div class="qf-h">⧉ Paste and Quick-Fill</div>
       <div class="qf-s">Paste or input the information, tap Fill to input the name, phone number, and address.</div>
-      <div class="qf-box${isNew?'':' ph'}" id="asQf">${isNew ? esc(`Jack Tate ${FILL_ADDR.phone}, ${FILL_ADDR.address}`) : 'Paste or input the information, tap Fill to input the name, phone number, and address.'}</div>
-      ${isNew ? '<div class="qf-row"><button class="as-recog" id="asFill">Fill</button></div>' : ''}
-    </div>
+      <div class="qf-box" id="asQf">${esc(`Jack Tate ${FILL_ADDR.phone}, ${FILL_ADDR.address}`)}</div>
+      <div class="qf-row"><button class="as-recog" id="asFill">Fill</button></div>
+    </div>` : ''}
     <div class="as-card">
       <div class="asf"><div class="k">Full Name</div><div class="v" id="asfName">${isNew?'':'Jack Tate'}</div></div>
       <div class="asf"><div class="k">Phone Number</div><div class="v" id="asfPhone">${esc(a.phone)}</div></div>
       <div class="asf chev"><div class="k">Province, City, District, Postal Code</div><div class="v" id="asfArea">${a.area?esc('CALIFORNIA\nSAN FRANCISCO\n'+(a.district||'')+'\n'+a.postal).replace(/\n/g,'<br>'):''}</div><span class="c">›</span></div>
       <div class="asf"><div class="k">Street Name, Building, House No.</div><div class="v" id="asfStreet">${esc(a.street)}</div></div>
       <div class="asf"><div class="k">Other Details (e.g. Block / Unit No., Landmarks)</div><div class="v muted"></div></div>
-    </div>
-    <div class="as-map">
-      <svg viewBox="0 0 340 110" preserveAspectRatio="xMidYMid slice">
-        <rect width="340" height="110" fill="#EEF2F5"/>
-        <g stroke="#C7D5E0" stroke-width="7" stroke-linecap="round">
-          <path d="M-10 90 L120 -20"/><path d="M40 130 L190 -25"/><path d="M110 135 L260 -20"/><path d="M190 130 L330 -5"/><path d="M-20 45 L90 135"/>
-        </g>
-        <polygon points="300,110 340,70 340,110" fill="#DDEBD9"/>
-        <circle cx="170" cy="48" r="13" fill="#EE4D2D"/><rect x="168" y="58" width="4" height="16" rx="2" fill="#EE4D2D"/>
-        <text x="10" y="100" font-size="13" font-weight="700" fill="#9AA6B2" font-family="Arial">Google</text>
-      </svg>
     </div>
     <div class="as-card">
       <div class="as-tgl"><span>Set as Default Address</span><span class="tg${(!isNew && target===state.defaultAddr)?' on':''}"></span></div>
