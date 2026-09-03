@@ -2021,12 +2021,7 @@ $('#psBody').addEventListener('click', e=>{
       state.psMode = 'edit';
       $('#paysheet').classList.remove('on');
       refreshOrderPay();
-      if(state.bindThen){                 // bound while setting the account up — just record it
-        const done = state.bindThen; state.bindThen = null;
-        done();
-        return;
-      }
-      state.paying = true;                // bound from checkout — this card pays the order now
+      state.paying = true;                // the bound card pays this order now
       payProcessing();
       return;
     }
@@ -2963,57 +2958,55 @@ const S_RECAP = { label:'Order placed recap', run(){
         ]);
       }, 700);
   }};
-/* new user, conversational variant: Migoo asks for the two things it is missing —
-   the address arrives as one typed message, the method as a follow-up choice */
-const S_COLLECT = { label:'Collect address + payment', run(){
+/* new user, conversational variant: Migoo has no delivery details on file, so it
+   asks for them in the chat. No card is requested here — payment is handled on the
+   order card. It only checks the address is specific and carries an email + phone;
+   once it is complete the order is created straight away. */
+const ADDR_LINE_1 = 'Jack Tate, 535 Mission St, Floor 14, San Francisco, CA 94105, +1 (415) 555-6432';
+const ADDR_LINE_2 = 'jack.tate@example.com';
+/* what is still missing before Migoo will create the order */
+function addrGaps(text){
+  const gaps = [];
+  if(!/\d+\s+\w/.test(text) || text.split(',').length < 3)
+    gaps.push('a specific street address — building, floor or unit included');
+  if(!/[^\s,]+@[^\s,]+\.[a-z]{2,}/i.test(text)) gaps.push('an email address for the receipt');
+  if(!/\+?\d[\d\s()-]{7,}/.test(text))          gaps.push('a phone number for the courier');
+  return gaps;
+}
+function armAddr(round){
+  const text = round === 0 ? ADDR_LINE_1 : ADDR_LINE_2;
+  setPending(text, ()=>{
+    userMsg(text);                                   // the typed message goes on screen
+    state.addrDraft = state.addrDraft ? state.addrDraft + ', ' + text : text;
+    const gaps = addrGaps(state.addrDraft);
+    after(()=>{
+      if(gaps.length && round === 0){                // detected a gap — ask for just that
+        aiMsg([{t:'p', text:`Almost there — I still need ${gaps.join(' and ')}.`}]);
+        after(()=>armAddr(1), 650);
+        return;
+      }
+      state.addr = SAVED_ADDR;
+      aiMsg([{t:'p', text:`✅ That’s everything — shipping to ${SAVED_ADDR.short.replace('Jack Tate, ','')}, receipt to ${ADDR_LINE_2}. Creating your order now…`}]);
+      then(()=>next(), 800);
+    }, 650);
+  });
+}
+const S_COLLECT = { label:'Confirm delivery details', run(){
       removeFollowups();
       setPending(null);
+      state.addrDraft = '';
       after(()=>{
         aiMsg([
-          {t:'p', text:'You’re new here, so I don’t have your details on file yet. Two things and I can place this order:'},
+          {t:'p', text:'You’re new here, so I don’t have your delivery details yet. Send me where this should ship — I need:'},
           {t:'ul', items:[
-            'Delivery address — full name, street, city, state/region and phone number',
-            'A payment method Migoo can charge on your behalf'
-          ]},
-          {t:'p', text:'Send me the address and I’ll follow up with the payment options.'}
+            'A specific street address — building, floor or unit included',
+            'An email address for the order receipt',
+            'A phone number for the courier'
+          ]}
         ]);
-        after(()=>setPending(
-          'Jack Tate, 535 Mission St, Floor 14, San Francisco, CA 94105, +1 (415) 555-6432',
-          ()=>{
-            state.addr = SAVED_ADDR;
-            after(()=>{
-              aiMsg([{t:'p', text:`Got it — shipping to ${SAVED_ADDR.short.replace('Jack Tate, ','')}. Now, how would you like to pay?`}]);
-              after(()=>followupMsg(payChoices()), 650);
-            }, 650);
-          }), 700);
+        after(()=>armAddr(0), 700);
       }, 600);
   }};
-/* the methods a brand-new account can start with, per environment */
-function payChoices(){
-  if(!standalone()) return [
-    {label:'ShopeePay', onTap:()=>pickPay('ShopeePay',
-      {id:'sp-new', logo:'shopeepay', label:'ShopeePay', payName:'Shopee Pay'})},
-    {label:'SPayLater', onTap:()=>pickPay('SPayLater',
-      {id:'spl', logo:'spaylater', label:'SPayLater', payName:'SPayLater'})}
-  ];
-  return [
-    {label:'Add a card', onTap:()=>{
-      userMsg('Add a card');
-      state.bindThen = ()=>confirmPay('Mastercard ···· 4444');
-      after(()=>{ state.psMode = 'edit'; renderPS('newcard'); $('#paysheet').classList.add('on'); }, 500);
-    }},
-    {label:'Link', onTap:()=>pickPay('Link', {id:'link', logo:'link', label:'Link', payName:'Link'})},
-    {label:'Cash App Pay', onTap:()=>pickPay('Cash App Pay',
-      {id:'cashapp', logo:'cashapp', label:'Cash App', payName:'Cash App'})}
-  ];
-}
-function pickPay(label, pay){ userMsg(label); state.pay = pay; confirmPay(label); }
-function confirmPay(label){
-  after(()=>{
-    aiMsg([{t:'p', text:`✅ ${label} saved for this purchase. Creating your order now…`}]);
-    then(()=>next(), 800);
-  }, 600);
-}
 const S_MEMORY = { label:'Memory added', run(){
       removeFollowups();
       setPending(null);
@@ -3079,11 +3072,11 @@ function newUser(){ return ['new','stnew','newchat','stchat'].includes(state.use
 function chatSetup(){ return state.userType === 'newchat' || state.userType === 'stchat'; }
 
 const NOTES = {
-  newchat:'New user, collected in the chat (in-Shopee): Migoo has no address and no payment method on file, so before creating the order it asks for both — the address arrives as one typed message, the method as a follow-up choice (ShopeePay / SPayLater). The order card is then issued complete. Paying still runs the first-time Face ID registration.',
+  newchat:'New user, delivery details collected in the chat (in-Shopee): Migoo has nothing on file, so it asks where to ship. No card is requested here — it only checks the address is specific and carries an email and a phone number, names anything missing, and creates the order as soon as it is complete. Paying then runs the first-time Face ID registration.',
   new:'New user, completed on the card (in-Shopee): the order card is issued with an empty Deliver-to row ("Add delivery address") and an unset "Set up ShopeePay" payment row. Tapping Pay without an address prompts for it; the Deliver-to pencil opens the address book, and paying opens the Face ID registration sheet → PIN → Face ID.',
   ret:'Returning user: Face ID is already enrolled, so "Pay with Shopee Pay" verifies with Face ID and confirms right in the chat. The Deliver-to pencil opens the two-level address book (My Addresses → Edit Address — Submit refreshes the card in place); the payment pencil opens the Shopee Payment Method sheet. The mail banner swipes up to dismiss.',
   stripe:'Category 2 — returning user (standalone shell, Amazon/eBay merchants): a card is already bound (···· 6789), so tapping Pay charges it straight away — Processing → receipt, no challenge, just like the in-Shopee flow. The Payment pencil opens the Choose-payment sheet to switch methods.',
-  stchat:'Category 2 — new user, collected in the chat (standalone shell): no address and no card on file, so Migoo asks for both before creating the order. "Add a card" opens the Stripe form and binds the card without charging; the order card is then issued complete and Pay charges it normally.',
+  stchat:'Category 2 — new user, delivery details collected in the chat (standalone shell): Migoo asks where to ship and checks the address is specific and carries an email and a phone number. No card is requested in the chat — the order card is issued with the "Add card" payment row, and tapping Pay opens the Stripe form.',
   stnew:'Category 2 — new user, completed on the card (standalone shell): the card is issued with an empty Deliver-to row and an "Add card" payment row. No address means Pay prompts for one first; once set, tapping Pay or the payment pencil opens the Stripe card form, and adding the card binds it and pays immediately.',
   nonag:'Category 3 — item without agentic checkout (standalone migoo shell): the 2nd bag carries no Buy with Migoo tag. Typing to buy it gets an explanation plus the product card; the PDP CTA is "Buy at eBay", which opens an iOS in-app browser and completes the purchase on eBay (item → checkout → order confirmed). In the buybox, Buy rows are offers that DO support agentic checkout — tapping one continues in the chat flow; View rows open that merchant\'s site in the browser.'
 };
@@ -3136,7 +3129,7 @@ function clearShell(){
     : {id:'sp6789', logo:'shopeepay', label:'···· 6789', payName:'Shopee Pay'};
   state.savedSel = (state.userType === 'stnew' || state.userType === 'stchat') ? null
                  : (standalone()) ? 'st6789' : 'sp6789'; state.psSel = 'saved';
-  state.bindThen = null;
+  state.addrDraft = '';
   state.addrEditing = false;
   state.addrSent = false;
   state.spEnrolled = (state.userType === 'ret' || standalone());
