@@ -824,6 +824,15 @@ body{
   font-family:var(--font); font-size:16px; font-weight:600; cursor:pointer; flex:0 0 auto; margin-top:auto;
 }
 .en-cta:active{background:#D8431F}
+.enroll.mg .fidicon{background:var(--blue-wash)}
+.enroll.mg .en-cta{background:var(--blue)}
+.enroll.mg .en-cta:active{background:#0A5BD6}
+.en-later{
+  width:100%; height:44px; border:0; background:none; color:var(--blue);
+  font-family:var(--font); font-size:15px; font-weight:600; cursor:pointer; flex:0 0 auto; margin-top:6px;
+}
+.en-linked{display:flex; align-items:center; gap:11px; padding:12px 14px; border:1px solid var(--line); border-radius:12px; margin:4px 0 14px; font-size:14.5px; color:var(--ink); font-weight:500}
+.en-linked .ok{margin-left:auto; color:#2A8703; font-size:12.5px; font-weight:600}
 
 /* PIN / verification-code sheet with security keyboard */
 .pinsheet{position:absolute; inset:0; z-index:38; pointer-events:none}
@@ -854,6 +863,11 @@ body{
   display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:600; color:var(--ink);
 }
 .otp-cell.cur{border-color:#EE4D2D; background:#fff}
+.pinsheet.mg .pin-dot.on{background:var(--blue)}
+.pinsheet.mg .otp-cell.cur{border-color:var(--blue)}
+.otp-confirm{margin:4px 0 0}
+.otp-confirm:disabled{opacity:.45; cursor:default}
+.mailtoast.sms .gm{background:#34C759; border:0}
 .otp-resend{
   margin-left:auto; width:fit-content; border:1px solid var(--line-2); border-radius:8px;
   padding:8px 14px; font-size:13.5px; color:var(--ink-3);
@@ -1183,7 +1197,7 @@ body{
       <div class="kb" id="kb"></div>
       <div class="kb-note">
         <svg width="13" height="13" viewBox="0 0 24 24"><path d="M12 2l8 3.5V11c0 5-3.4 8.8-8 11-4.6-2.2-8-6-8-11V5.5z" fill="none" stroke="#5C6370" stroke-width="1.8"/><path d="M8.5 11.6l2.4 2.4 4.6-4.6" stroke="#5C6370" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
-        ShopeePay Security Keyboard
+        <span id="kbNoteTxt">ShopeePay Security Keyboard</span>
       </div>
     </div>
   </div>
@@ -1201,6 +1215,14 @@ body{
   </div>
 
   <!-- mail notification banner -->
+  <div class="mailtoast sms" id="smsToast">
+    <div class="gm"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.4 1.3 4.5 3.4 6-.2 1.3-.8 2.6-1.7 3.6 1.9-.2 3.7-1 5-2.1 1 .3 2.1.5 3.3.5 5.5 0 10-3.6 10-8S17.5 3 12 3z" fill="#fff"/></svg></div>
+    <div class="mt-b">
+      <div class="mt-h"><span>MESSAGES</span><span>now</span></div>
+      <div class="mt-t">Migoo</div>
+      <div class="mt-s" id="smsText">Your Migoo verification code is 482913.</div>
+    </div>
+  </div>
   <div class="mailtoast" id="mailToast">
     <div class="gm">
       <svg width="18" height="14" viewBox="0 0 18 14"><rect x="0" y="0" width="18" height="14" rx="1.6" fill="#fff"/><path d="M1 1.6v10.8h2.6V5.2L9 9l5.4-3.8v7.2H17V1.6L9 7.2z" fill="#EA4335"/><path d="M1 1.6L9 7.2l8-5.6" fill="none" stroke="#EA4335" stroke-width="0"/></svg>
@@ -1221,6 +1243,11 @@ body{
   <div class="seg">
     <button data-user="stnew" class="on">New</button>
     <button data-user="stripe">Returning</button>
+  </div>
+  <h4>Address</h4>
+  <div class="seg">
+    <button data-addr="none" class="on">No address</button>
+    <button data-addr="memory">In memory</button>
   </div>
   <h4>Steps</h4>
   <div class="steps" id="stepList"></div>
@@ -1353,9 +1380,22 @@ const FILL_ADDR = {
   street:'2130 Fillmore St', district:'PACIFIC HEIGHTS', area:'SAN FRANCISCO, CA 94115, US', postal:'94115'
 };
 
-/* two-stage address intake with a completeness check: the first message
-   is missing required fields, Migoo calls them out, the follow-up completes
-   the set. Used by the delivery step and the order-card address edit. */
+/* the user's current location (Address · none proposes shipping here) */
+const HERE_ADDR = {
+  full:'315 Montgomery St, San Francisco, CA 94104, USA',
+  short:'Jack Tate, 315 Montgomery St, San Francisco',
+  address:'315 Montgomery St, San Francisco, CA 94104, USA',
+  phone:'',                                    // filled in from the chat after the user confirms
+  street:'315 Montgomery St', district:'FINANCIAL DISTRICT', area:'SAN FRANCISCO, CA 94104, US', postal:'94104'
+};
+/* the address typed in the chat ("Enter a new address"); the card shows it in full */
+const TYPED_ADDR = {
+  full:'2130 Fillmore St, Apt 4B, San Francisco, CA 94115, USA\n+1 (415) 555-6432',
+  short:'Jack Tate, 2130 Fillmore St, Apt 4B, San Francisco, CA 94115 · +1 (415) 555-6432',
+  address:'2130 Fillmore St, Apt 4B, San Francisco, CA 94115, USA',
+  phone:'+1 (415) 555-6432',
+  street:'2130 Fillmore St, Apt 4B', district:'PACIFIC HEIGHTS', area:'SAN FRANCISCO, CA 94115, US', postal:'94115'
+};
 /* amounts follow the store the user bought through (8.875% CA tax) */
 function amountsFor(key, priceOverride){
   const p = PRODUCTS[key];
@@ -1979,18 +2019,17 @@ $('#psBody').addEventListener('click', e=>{
     openPin('setup-otp');
   }
   else if(act==='add-card'){
+    if(state.pay.id === 'st-none'){
+      // first card: verify the phone by SMS → set a PIN → offer Face ID; only then is it bound
+      closePaySheet();                    // 'pay' mode close: releases the countdown + Pay now
+      startCardVerify();
+      return;
+    }
     if(!PAY_METHODS.some(m=>m.id==='mc4444')){
       PAY_METHODS.push({id:'mc4444', logo:'mastercard', payName:'Mastercard ···· 4444', label:'···· 4444',
         manage:{name:'Jack Tate', email:'jack.tate@example.com', acct:'MASTERCARD ···· 4444'}});
     }
     state.savedSel='mc4444'; state.psSel='saved';
-    if(state.pay.id === 'st-none'){
-      // first card bound: it goes onto the order card, and the user taps Pay now themselves
-      state.pay = {id:'mc4444', logo:'mastercard', label:'···· 4444', payName:'Mastercard ···· 4444'};
-      closePaySheet();                    // 'pay' mode close: releases the countdown + Pay now
-      refreshOrderPay();
-      return;
-    }
     renderPS('main');
   }
 });
@@ -2042,40 +2081,117 @@ function completeRegistration(){
   const chip = [...document.querySelectorAll('.order-wrap:not(.stale) .pm-chip')].pop();
   if(chip) chip.innerHTML = payLogo('shopeepay',26,18) + '<span>···· 6789</span>';
   aiMsg([{t:'p', text:'✅ Face ID registered! Migoo will verify with your Face ID whenever it makes a purchase for you.'}]);
-  after(()=>payProcessing(), 900);
+  after(()=>faceID(()=>payProcessing()), 900);
 }
 function closeEnrollSheet(){ $('#enroll').classList.remove('on'); }
+
+/* ---- new-user card binding (standalone shell): the card form is followed by an
+   SMS code (simulated: the message arrives and the code fills itself in), the
+   user confirms it, sets a Migoo PIN, and is then offered Face ID — register it
+   (payments verify with a scan) or skip (payments confirm with the PIN). ---- */
+const SMS_CODE = '482913';
+function showSms(){
+  $('#smsText').textContent = `Your Migoo verification code is ${SMS_CODE}. It expires in 10 minutes.`;
+  $('#smsToast').classList.add('on');
+  state.timers.push(setTimeout(hideSms, 4500));
+}
+function hideSms(){ $('#smsToast').classList.remove('on'); }
+function startCardVerify(){
+  state.paying = true;                        // chain in flight: countdown frozen, Pay now parked
+  const ob = window.__orderBtn; if(ob) ob.disabled = true;
+  openPin('card-otp');
+  state.timers.push(setTimeout(()=>{
+    showSms();
+    let i = 0;
+    const tick = ()=>{
+      if(state.pinMode !== 'card-otp') return;   // sheet dismissed — stop filling
+      state.pinBuf = SMS_CODE.slice(0, ++i);
+      updatePinProgress();
+      if(i < 6) state.timers.push(setTimeout(tick, 150));
+      else { const b = $('#otpConfirm'); if(b) b.disabled = false; }
+    };
+    state.timers.push(setTimeout(tick, 1100));
+  }, 650));
+}
+function offerFaceID(){
+  state.enrollVariant = 'card';
+  $('#enroll').classList.add('mg');
+  $('#enBody').innerHTML = `
+    <div class="fidicon">${FID_ICON(46,'#0A66FF')}</div>
+    <div class="en-title">Register your Face ID for<br>Agentic Checkout</div>
+    <div class="en-sub">Register now and Migoo will ask for a quick scan whenever it makes a purchase for you. Skip it and purchases are confirmed with your Migoo PIN instead.</div>
+    <div class="en-linked">${payLogo('mastercard',34,24)}<span>Mastercard ···· 4444</span><span class="ok">✓ Linked</span></div>
+    <div class="en-terms">By continuing, you agree to the Migoo <a>Terms of Service</a> and <a>Privacy Policy</a>. You can change how purchases are verified anytime in Settings.</div>
+    <button class="en-cta" id="enCta">Register Face ID</button>
+    <button class="en-later" id="enLater">Maybe later</button>`;
+  $('#enCta').addEventListener('click', ()=>{
+    closeEnrollSheet();
+    state.timers.push(setTimeout(()=>faceID(()=>finishCardBind(true)), 320));   // scan → registered
+  });
+  $('#enLater').addEventListener('click', ()=>{ closeEnrollSheet(); finishCardBind(false); });
+  $('#enroll').classList.add('on');
+}
+/* the chain is complete: the card goes onto the order card, Pay now is the user's next tap */
+function finishCardBind(withFaceID){
+  state.enrollVariant = null;
+  state.spEnrolled = withFaceID;
+  if(!PAY_METHODS.some(m=>m.id==='mc4444')){
+    PAY_METHODS.push({id:'mc4444', logo:'mastercard', payName:'Mastercard ···· 4444', label:'···· 4444',
+      manage:{name:'Jack Tate', email:'jack.tate@example.com', acct:'MASTERCARD ···· 4444'}});
+  }
+  state.savedSel = 'mc4444'; state.psSel = 'saved';
+  state.pay = {id:'mc4444', logo:'mastercard', label:'···· 4444', payName:'Mastercard ···· 4444'};
+  state.paying = false;
+  refreshOrderPay();
+  toast(withFaceID ? 'Face ID registered — purchases will verify with a quick scan.'
+                   : 'Card linked — purchases will be confirmed with your Migoo PIN.');
+}
 
 /* PIN / OTP sheet */
 function openPin(mode){
   state.pinMode = mode; state.pinBuf = '';
+  $('#pinsheet').classList.toggle('mg', standalone());
+  $('#kbNoteTxt').textContent = standalone() ? 'Migoo Security Keyboard' : 'ShopeePay Security Keyboard';
   renderPin();
   $('#pinsheet').classList.add('on');
 }
 function closePin(){ $('#pinsheet').classList.remove('on'); state.pinMode = null; }
 function renderPin(){
   const m = state.pinMode;
-  const otp = m === 'pay-otp' || m === 'setup-otp';
+  const otp = m === 'pay-otp' || m === 'setup-otp' || m === 'card-otp';
   const TITLES = {
     'setup-otp':'Verify Phone Number',
     'setup-pin':'Set ShopeePay PIN',
-    'pay':'Enter ShopeePay PIN',
+    'card-otp':'Verify your phone number',
+    'card-pin':'Set your Migoo PIN',
+    'pay': standalone() ? 'Enter your Migoo PIN' : 'Enter ShopeePay PIN',
     'pay-pin':'Enter ShopeePay PIN',
     'pay-otp':'Enter Verification Code',
     'reg':'Enter ShopeePay PIN'
   };
   $('#pinTitle').textContent = TITLES[m] || '';
   const n = state.pinBuf.length;
-  $('#pinBody').innerHTML = otp ? `
+  $('#pinBody').innerHTML = otp ? (m === 'card-otp' ? `
+    <div class="otp-sub">Enter the 6-digit code we just sent by SMS to</div>
+    <div class="otp-wa"><svg width="17" height="17" viewBox="0 0 24 24"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.4 1.3 4.5 3.4 6-.2 1.3-.8 2.6-1.7 3.6 1.9-.2 3.7-1 5-2.1 1 .3 2.1.5 3.3.5 5.5 0 10-3.6 10-8S17.5 3 12 3z" fill="#34C759"/></svg> ${esc((state.addr && state.addr.phone) || '+1 (415) 555-6432')}</div>
+    <div class="otp-cells">${Array.from({length:6},(_,i)=>`<span class="otp-cell${i===n?' cur':''}">${esc(state.pinBuf[i]||'')}</span>`).join('')}</div>
+    <div style="display:flex; align-items:center; justify-content:space-between"><span class="pin-link" style="text-align:left">Didn’t get it?</span><div class="otp-resend" style="margin:0">Resend (60)</div></div>
+    <button class="ps-cta otp-confirm" id="otpConfirm" disabled>Confirm</button>` : `
     <div class="otp-sub">Your verification code sent by WhatsApp to</div>
     <div class="otp-wa"><svg width="17" height="17" viewBox="0 0 24 24"><path d="${WA_PATH}" fill="#25D366"/></svg> +1 (415) 555-6432</div>
     <div class="pin-link" style="text-align:left">Try Other Methods</div>
     <div class="otp-cells">${Array.from({length:6},(_,i)=>`<span class="otp-cell${i===n?' cur':''}">${esc(state.pinBuf[i]||'')}</span>`).join('')}</div>
-    <div class="otp-resend">Resend (60)</div>` : `
+    <div class="otp-resend">Resend (60)</div>`) : `
     <div class="pin-dots">${Array.from({length:6},(_,i)=>`<span class="pin-dot${i<n?' on':''}"></span>`).join('')}</div>
     ${m === 'setup-pin'
       ? '<div class="pin-link" style="color:var(--ink-3); cursor:default">This PIN will secure your ShopeePay payments</div>'
+      : m === 'card-pin'
+      ? '<div class="pin-link" style="color:var(--ink-3); cursor:default">This PIN confirms your Migoo purchases when Face ID isn’t used</div>'
+      : standalone()
+      ? '<div class="pin-link">Forgot your Migoo PIN?</div>'
       : '<div class="pin-link">Forgot ShopeePay PIN?</div>'}`;
+  const oc = $('#otpConfirm');
+  if(oc) oc.addEventListener('click', ()=>{ if(state.pinBuf.length === 6){ hideSms(); openPin('card-pin'); } });   // code confirmed → set a PIN
 }
 /* per-keystroke progress update — avoids rebuilding the sheet on every key */
 function updatePinProgress(){
@@ -2109,18 +2225,26 @@ $('#kb').addEventListener('pointerdown', e=>{
       else if(state.pinMode === 'pay-pin'){ openPin('pay-otp'); }         // no-Face-ID: PIN ok → SMS code
       else if(state.pinMode === 'pay-otp'){ closePin(); payProcessing(); } // no-Face-ID: code ok → paid
       else if(state.pinMode === 'reg'){ closePin(); closeEnrollSheet(); completeRegistration(); }  // registered → pay via Face ID
+      else if(state.pinMode === 'card-otp'){ const b = $('#otpConfirm'); if(b) b.disabled = false; }  // typed the code by hand
+      else if(state.pinMode === 'card-pin'){ closePin(); offerFaceID(); }                          // PIN set → Face ID offer
     }, 420));
   }
 });
 $('#pinX').addEventListener('click', ()=>{
   const mode = state.pinMode;
-  const wasPay = ['pay','pay-pin','pay-otp','setup-otp','setup-pin','reg'].includes(mode);
+  const wasPay = ['pay','pay-pin','pay-otp','setup-otp','setup-pin','reg','card-otp','card-pin'].includes(mode);
+  if(mode === 'card-otp') hideSms();
   closePin();
   if(mode !== 'reg') state.paying = false;   // cancelled — countdown resumes ('reg' keeps the enroll sheet open)
   if(wasPay && window.__orderBtn) window.__orderBtn.disabled = false;   // cancelled checkout — allow retry
 });
-$('#enX').addEventListener('click', ()=>{ closeEnrollSheet(); closePin(); state.paying = false; });
-$('#enDim').addEventListener('click', ()=>{ closeEnrollSheet(); closePin(); state.paying = false; });
+function dismissEnroll(){
+  closeEnrollSheet(); closePin();
+  if(state.enrollVariant === 'card'){ finishCardBind(false); return; }   // closing the offer = "Maybe later"
+  state.paying = false;
+}
+$('#enX').addEventListener('click', dismissEnroll);
+$('#enDim').addEventListener('click', dismissEnroll);
 $('#odX').addEventListener('click', ()=>$('#odetail').classList.remove('on'));
 $('#odetail').addEventListener('click', e=>{ if(e.target === e.currentTarget) $('#odetail').classList.remove('on'); });
 
@@ -2190,7 +2314,7 @@ function issueOrderCard(){
     window.__orderWrap.classList.add('stale');
     window.__orderWrap.querySelectorAll('button').forEach(b=>b.disabled = true);
   }
-  // main-flow quick pay: Processing on the button, then a success message in the chat
+  // main-flow quick pay: Face ID in place, then a success message in the chat
   const {wrap, btn} = orderMsg(orderSpec(), (b)=>{
     if(paid()){ b.disabled = true; return; }   // already paid — never pay twice
     if(!state.addr){                                   // nothing to ship to yet
@@ -2199,16 +2323,17 @@ function issueOrderCard(){
       return;
     }
     b.disabled = true;
-    state.paying = true;                               // freeze the countdown while the charge runs
+    state.paying = true;                               // freeze the countdown while verification runs
     // no card yet: bind one first (the sheet hands back to Pay now); with a card
-    // on file, charge it straight away — no Face ID step
+    // on file, verify the charge with Face ID — or the Migoo PIN if Face ID was skipped
     if(standalone()){
       if(state.pay.id === 'st-none'){
         b.disabled = false;                                // sheet can be dismissed — allow retry
         openStripeBind();
         return;
       }
-      payProcessing();
+      if(state.spEnrolled) faceID(()=>payProcessing());
+      else openPin('pay');
       return;
     }
     // brand-new user: register Face ID for Agentic Checkout (PIN-confirmed), then pay with it
@@ -2219,7 +2344,7 @@ function issueOrderCard(){
     }
     // bound ShopeePay without Face ID enrollment: pay with the existing PIN
     if(state.pay.id === 'sp6789' && !state.spEnrolled){ openPin('pay'); return; }
-    payProcessing();
+    faceID(()=>payProcessing());
   });
   window.__orderWrap = wrap;
   window.__orderBtn = btn;
@@ -3020,7 +3145,7 @@ let state = { step:0, timers:[], entry:null, orderKey:'bag3', addr:null,
               savedSel:'sp6789', psSel:'saved', psView:'main',
               spEnrolled:false, pinMode:null, pinBuf:'', userType:'stnew', addrSent:false,
               orderTimer:null, orderDeadline:0, orderStore:'Shopee', orderPrice:null,
-              ckProt:false, ckView:'form', picked:{}, defaultAddr:null };
+              ckProt:false, ckView:'form', picked:{}, defaultAddr:null, addrMode:'none', addrSource:null };
 /* content delay — when jumping steps it fires immediately so the step's
    full content is on screen */
 function after(fn, ms){
@@ -3070,16 +3195,122 @@ const S_REQ = { label:'Order request', run(){
       else userMsg('Buy the third bag for me');
       then(()=>next(), 700);
   }};
+/* ---- delivery address step: Migoo proposes an address (current location, or
+   the one in memory) and the user either accepts it or types a new one. A typed
+   address must carry a detailed street line, a ZIP code and a phone number
+   before the order is created. ---- */
+const NEW_ADDR_LINE_1 = '2130 Fillmore St, Apt 4B, San Francisco, CA';
+const NEW_ADDR_LINE_2 = 'ZIP is 94115, phone +1 (415) 555-6432';
+function proposedAddr(){ return state.addrMode === 'memory' ? SAVED_ADDR : HERE_ADDR; }
+/* what is still missing from the typed address */
+function addrGaps(text){
+  const gaps = [];
+  if(!/\d+\s+[A-Za-z][\w.]*\s*(St|Street|Ave|Avenue|Blvd|Rd|Road|Dr|Way|Ln)\b/i.test(text)) gaps.push('the street address');
+  if(!/\b(Apt|Unit|Suite|Ste|Floor|Fl|#)\s*\w+/i.test(text))                          gaps.push('the unit or floor');
+  if(!/\b\d{5}(?:-\d{4})?\b/.test(text))                                              gaps.push('the ZIP code');
+  if(!/\+?\d[\d\s()-]{8,}\d/.test(text))                                              gaps.push('a phone number for the courier');
+  return gaps;
+}
+function askAddr(){
+  const a = proposedAddr();
+  aiMsg(state.addrMode === 'memory'
+    ? [{t:'p', text:`I have a delivery address in memory — shall I ship this to ${a.address.replace(', USA','')}?`}]
+    : [{t:'p', text:'I don’t have a delivery address for you yet. Shall I ship this to your current location?'},
+       {t:'p', text:`📍 ${a.address.replace(', USA','')}`}]);
+}
+function acceptAddr(a, source){
+  state.addr = a;
+  state.addrSource = source;
+  if(!state.addrBook.includes(a)) state.addrBook.push(a);
+  if(!state.defaultAddr) state.defaultAddr = a;
+}
+const PHONE_LINE = '+1 (415) 555-6432';
+function askPhone(){
+  aiMsg([{t:'p', text:'Got it. One more thing — what phone number can the courier reach you on?'}]);
+}
+function armPhone(){
+  setPending(PHONE_LINE, ()=>{
+    userMsg(PHONE_LINE);
+    after(()=>{
+      if(!/\+?\d[\d\s()-]{8,}\d/.test(PHONE_LINE)){
+        aiMsg([{t:'p', text:'That doesn’t look like a phone number — please send it with the area code.'}]);
+        after(()=>armPhone(), 500);
+        return;
+      }
+      HERE_ADDR.phone = PHONE_LINE;
+      HERE_ADDR.full = HERE_ADDR.address + '\n' + PHONE_LINE;
+      acceptAddr(HERE_ADDR, 'here');
+      aiMsg([{t:'p', text:`✅ Thanks — shipping to ${HERE_ADDR.address.replace(', USA','')}, courier can reach you at ${PHONE_LINE}.`}]);
+      then(()=>next(), 900);
+    }, 600);
+  });
+}
+function armNewAddr(round){
+  const text = round === 0 ? NEW_ADDR_LINE_1 : NEW_ADDR_LINE_2;
+  setPending(text, ()=>{
+    userMsg(text);
+    state.addrDraft = state.addrDraft ? state.addrDraft + ', ' + text : text;
+    const gaps = addrGaps(state.addrDraft);
+    after(()=>{
+      if(gaps.length){                                 // something is missing — ask for just that
+        aiMsg([{t:'p', text:`Almost there — I still need ${gaps.join(' and ')}.`}]);
+        after(()=>armNewAddr(1), 650);
+        return;
+      }
+      acceptAddr(TYPED_ADDR, 'typed');
+      aiMsg([{t:'p', text:`✅ That’s complete — shipping to ${TYPED_ADDR.address.replace(', USA','')}, courier can reach you at ${TYPED_ADDR.phone}.`}]);
+      then(()=>next(), 900);
+    }, 650);
+  });
+}
+const S_ADDR = { label:'Delivery address', run(){
+      removeFollowups();
+      setPending(null);
+      state.addrDraft = '';
+      const a = proposedAddr();
+      if(instant){                          // jumped past this step: replay the accepted proposal
+        askAddr();
+        userMsg('Yes, ship there');
+        if(state.addrMode === 'none'){        // current location: the phone was collected too
+          askPhone(); userMsg(PHONE_LINE);
+          HERE_ADDR.phone = PHONE_LINE; HERE_ADDR.full = HERE_ADDR.address + '\n' + PHONE_LINE;
+        }
+        acceptAddr(a, state.addrMode === 'none' ? 'here' : 'memory');
+        return;
+      }
+      after(()=>{
+        askAddr();
+        after(()=>{
+          followupMsg([
+            {label:'Yes, ship there', onTap:()=>{
+              userMsg('Yes, ship there');
+              if(state.addrMode === 'none'){  // a location has no phone on file — collect it
+                after(()=>{ askPhone(); after(()=>armPhone(), 500); }, 550);
+                return;
+              }
+              acceptAddr(a, 'memory');
+              then(()=>next(), 600);
+            }},
+            {label:'Enter a new address', onTap:()=>{
+              userMsg('I’ll enter a new address');
+              after(()=>{
+                aiMsg([{t:'p', text:'Sure — send it in one message with the street and unit, the ZIP code, and a phone number for the courier.'}]);
+                after(()=>armNewAddr(0), 500);
+              }, 550);
+            }}
+          ]);
+        }, 500);
+      }, 600);
+  }};
 const S_CREATE = { label:'Creating order', run(){
       removeFollowups();
       setPending(null);
-      // returning users order straight from their saved address; a new user
-      // either filled it in during the collect step or fills it on the card
-      if(!state.addr && !newUser()) state.addr = SAVED_ADDR;
+      if(!state.addr) acceptAddr(proposedAddr(), state.addrMode);   // safety net
       after(()=>{
-        aiMsg([{t:'p', text:chatSetup()
-          ? 'Great — creating the order with the details you just gave me, this may take a moment.'
-          : 'Great — creating the order with your saved delivery address, this may take a moment.'}]);
+        aiMsg([{t:'p', text:
+            state.addrSource === 'typed'  ? 'Great — creating the order with the address you just gave me, this may take a moment.'
+          : state.addrSource === 'memory' ? 'Great — creating the order with your saved delivery address, this may take a moment.'
+          :                                 'Great — creating the order, shipping to your current location — this may take a moment.'}]);
         const w = workingMsg();
         $('#taskBadge').classList.add('on');
         then(()=>{ w.remove(); advance(stepAt(S_CARD)); }, 2500);
@@ -3088,7 +3319,7 @@ const S_CREATE = { label:'Creating order', run(){
 const S_CARD = { label:'Order card · pay CTA', run(){
       thread.querySelectorAll('.working').forEach(n=>n.remove());
       $('#taskBadge').classList.add('on');
-      if(!state.addr && !newUser()) state.addr = SAVED_ADDR;
+      if(!state.addr) acceptAddr(proposedAddr(), state.addrMode);
       issueOrderCard();
   }};
 const S_PAID = { label:'Payment success (chat)', run(){
@@ -3225,10 +3456,10 @@ const S_LOOKUP = { label:'Order lookup', run(){
       }, 700);
   }};
 /* two experience paths: a first-time user binds a card on the order card before
-   paying; a returning user pays with the card on file — neither verifies with Face ID */
+   paying; both then verify the Pay now tap with Face ID */
 const FLOWS = {
-  stnew:  [S_LIST, S_REQ, S_CREATE, S_CARD, S_PAID, S_RECAP, S_AUTOTASK, S_LOOKUP, S_SHIPPED],
-  stripe: [S_LIST, S_REQ, S_CREATE, S_CARD, S_PAID, S_RECAP, S_MEMORY, S_AUTOTASK, S_LOOKUP, S_SHIPPED]
+  stnew:  [S_LIST, S_REQ, S_ADDR, S_CREATE, S_CARD, S_PAID, S_RECAP, S_AUTOTASK, S_LOOKUP, S_SHIPPED],
+  stripe: [S_LIST, S_REQ, S_ADDR, S_CREATE, S_CARD, S_PAID, S_RECAP, S_MEMORY, S_AUTOTASK, S_LOOKUP, S_SHIPPED]
 };
 function curFlow(){ return FLOWS[state.userType]; }
 /* every path runs in the standalone migoo shell (Amazon/eBay merchants, bank cards) */
@@ -3241,9 +3472,13 @@ function chatSetup(){ return false; }
    the paid receipt, so those saves are not echoed back into the chat */
 function onCardSetup(){ return newUser() && !chatSetup(); }
 
+const ADDR_NOTES = {
+  none:'Address · none: Migoo has no address on file, so after the buy request it proposes shipping to the current location (315 Montgomery St). "Yes, ship there" accepts it and Migoo then asks for a phone number to complete the delivery details; "Enter a new address" asks for a typed address, which must carry the street and unit, a ZIP code and a phone number — anything missing is called out and completed in a second message — before the order card is issued with the full typed address.',
+  memory:'Address · in memory: the same exchange, but Migoo proposes the remembered address (535 Mission St, Floor 14) instead of the current location.'
+};
 const NOTES = {
-  stnew:'New user, completed on the card: the order card is issued with an empty Deliver-to row ("Add delivery address") and an "Add card" payment row. Tapping Pay without an address prompts for one first (empty address book → add manually); once set, tapping Pay or the payment pencil opens the payment picker with the "Card · Set up required" row preselected; Add › (or Continue) opens the card form; adding the card only binds it — the Payment row refreshes and the user taps Pay now again, which charges it (Processing → receipt, no Face ID). Saves show on the card only — no chat echo.',
-  stripe:'Returning user: an address and a card (···· 6789) are already on file, so "Pay now" charges straight away — Processing → receipt, no verification step. The Deliver-to pencil opens the address book; the Payment pencil opens the Choose-payment sheet to switch methods. After the recap Migoo offers to remember the details, then to track the order as an auto-task.'
+  stnew:'New user: the delivery address is settled in the chat first (see Address), then the order card is issued with an "Add card" payment row. Tapping Pay or the payment pencil opens the payment picker with the "Card · Set up required" row preselected; Add › (or Continue) opens the card form. Add card → an SMS code arrives and fills itself in → Confirm → set a 6-digit Migoo PIN → Face ID offer: "Register Face ID" runs the scan and later purchases verify with Face ID; "Maybe later" keeps the PIN as the confirmation step. The card then lands on the Payment row and the user taps Pay now themselves. Saves show on the card only — no chat echo.',
+  stripe:'Returning user: an address and a card (···· 6789) are already on file, so "Pay now" verifies with Face ID and then charges — Face ID → Processing → receipt. The Deliver-to pencil opens the address book; the Payment pencil opens the Choose-payment sheet to switch methods. After the recap Migoo offers to remember the details, then to track the order as an auto-task.'
 };
 
 function next(){
@@ -3269,10 +3504,12 @@ function clearShell(){
   closeSPM();
   state.spmSel = null;
   state.asEditTarget = null;
-  [SAVED_ADDR, NEW_ADDR, OFFICE_ADDR, FILL_ADDR].forEach(a=>{ a.pickup = false; a.ret = false; a.label = 'Home'; });
+  [SAVED_ADDR, NEW_ADDR, OFFICE_ADDR, FILL_ADDR, HERE_ADDR, TYPED_ADDR].forEach(a=>{ a.pickup = false; a.ret = false; a.label = 'Home'; });
   SAVED_ADDR.pickup = SAVED_ADDR.ret = true;    // the account address carries all three roles
-  state.addrBook = newUser() ? [] : [SAVED_ADDR, NEW_ADDR, OFFICE_ADDR];
-  state.defaultAddr = newUser() ? null : SAVED_ADDR;
+  state.addrBook = state.addrMode === 'memory' ? [SAVED_ADDR, NEW_ADDR, OFFICE_ADDR] : [];
+  state.defaultAddr = state.addrMode === 'memory' ? SAVED_ADDR : null;
+  state.addrSource = null;
+  HERE_ADDR.phone = '';
   state.picked = {};                            // PDP variant choices belong to one run
   $('#toast').classList.remove('on');
   closePDP();
@@ -3292,7 +3529,9 @@ function clearShell(){
   state.addrDraft = '';
   state.addrEditing = false;
   state.addrSent = false;
-  state.spEnrolled = true;                  // no PIN/Face ID challenges in the standalone shell
+  state.spEnrolled = !newUser();            // returning users have Face ID; a new user decides during card binding
+  state.enrollVariant = null;
+  $('#enroll').classList.remove('mg'); hideSms();
   state.psMode = 'edit';
   state.ckProt = false; state.ckView = 'form';
   closeCheckout();
@@ -3326,16 +3565,25 @@ function buildStepList(){
     b.addEventListener('click', ()=>gotoStep(i));
     list.appendChild(b);
   });
-  $('#pathNote').textContent = NOTES[state.userType];
+  $('#pathNote').textContent = NOTES[state.userType] + ' ' + ADDR_NOTES[state.addrMode];
 }
 function highlightStep(){
   $('#stepList').querySelectorAll('button').forEach((b,i)=>b.classList.toggle('on', i===state.step));
 }
-document.querySelectorAll('.devbar .seg button').forEach(b=>{
+document.querySelectorAll('.devbar .seg button[data-user]').forEach(b=>{
   b.addEventListener('click', ()=>{
-    document.querySelectorAll('.devbar .seg button').forEach(n=>n.classList.remove('on'));
+    document.querySelectorAll('.devbar .seg button[data-user]').forEach(n=>n.classList.remove('on'));
     b.classList.add('on');
     state.userType = b.dataset.user;
+    buildStepList();
+    reset();
+  });
+});
+document.querySelectorAll('.devbar .seg button[data-addr]').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('.devbar .seg button[data-addr]').forEach(n=>n.classList.remove('on'));
+    b.classList.add('on');
+    state.addrMode = b.dataset.addr;
     buildStepList();
     reset();
   });
