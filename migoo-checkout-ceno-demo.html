@@ -1812,11 +1812,11 @@ function renderPS(view){
         <div class="ps-name">${esc(saved.label)}</div>
         <div class="ps-more" data-act="more">View more ›</div>
       </div>` : standalone() ? `
-      <div class="ps-row setup card" data-act="sel-main" data-id="newcard">
+      <div class="ps-row setup card" data-act="sel-saved">
         <div class="ps-radio${state.psSel==='saved'?' on':''}"></div>
         <div class="ps-logo">${payLogo('newcard')}</div>
         <div class="ps-name">Card<div class="ps-sub" style="color:var(--blue)">Set up required — add your card details</div></div>
-        <div class="ps-more" data-act="more">View more ›</div>
+        <div class="ps-more" data-act="add-card-form">Add ›</div>
       </div>` : `
       <div class="ps-row setup" data-act="more">
         <div class="ps-radio${state.psSel==='saved'?' on':''}"></div>
@@ -1923,7 +1923,7 @@ function applyPS(){
   let next;
   if(state.psSel==='saved'){
     const m = PAY_METHODS.find(x=>x.id===state.savedSel);
-    if(!m){ renderPS('cards'); return; }                  // nothing bound yet — guide to add
+    if(!m){ renderPS('newcard'); return; }                // nothing bound yet — go add the card
     next = {id:m.id, logo:m.logo, label:m.label, payName:m.payName};
   } else {
     const w = WALLET_ROWS.find(r=>r.id===state.psSel);
@@ -1952,6 +1952,7 @@ $('#psBody').addEventListener('click', e=>{
   const act = t.dataset.act, id = t.dataset.id;
   if(act==='sel-main'){ if(id==='newcard') renderPS('newcard'); else { state.psSel=id; renderPS('main'); } }
   else if(act==='more'){ e.stopPropagation(); renderPS('cards'); }
+  else if(act==='sel-saved'){ state.psSel='saved'; renderPS('main'); }
   else if(act==='continue'){ applyPS(); }
   else if(act==='pick-card'){ state.savedSel=id; state.psSel='saved'; renderPS('main'); }
   else if(act==='edit'){ renderPS('manage'); }
@@ -1967,7 +1968,7 @@ $('#psBody').addEventListener('click', e=>{
     renderPS('cards');
   }
   else if(act==='add-sp'){ renderPS('setupform'); }
-  else if(act==='add-card-form'){ renderPS('newcard'); }
+  else if(act==='add-card-form'){ e.stopPropagation(); renderPS('newcard'); }
   else if(act==='save-setup'){
     // account bound: register the instrument, then verify phone → set PIN → pay
     if(!PAY_METHODS.some(m=>m.id==='sp6789')) PAY_METHODS.unshift({...INIT_METHODS[0]});
@@ -2228,57 +2229,303 @@ function issueOrderCard(){
   window.__orderBtn = btn;
   startOrderCountdown(wrap);
 }
-/* ---- in-app browser: merchant sites (Shopee / eBay / Amazon / Walmart) ---- */
+/* ---- in-app browser: merchant sites (Shopee / eBay / Walmart / Amazon) ----
+   Every "View in …" row (and every non-Shopee row's View button) opens the
+   merchant's own site in an iOS in-app browser and completes the purchase
+   there: item → checkout → order confirmed. Each merchant gets its own
+   mobile-web layout, modelled on the real site. */
 const SHOP_META = {
   shopee: {host:'shopee.com',  color:'#EE4D2D', btnBg:'#EE4D2D', btnFg:'#fff',     buy:'Buy Now',     pay:'Place Order',       orderNo:'250912K7G4Q2ZX'},
   ebay:   {host:'ebay.com',    color:'#3665F3', btnBg:'#3665F3', btnFg:'#fff',     buy:'Buy It Now',  pay:'Confirm and pay',   orderNo:'12-09876-54321'},
   amazon: {host:'amazon.com',  color:'#FF9900', btnBg:'#FFD814', btnFg:'#0F1111',  buy:'Buy Now',     pay:'Place your order',  orderNo:'114-2769880-53'},
-  walmart:{host:'walmart.com', color:'#0071CE', btnBg:'#0071CE', btnFg:'#fff',     buy:'Buy now',     pay:'Place order',       orderNo:'2000104-8837'}
+  walmart:{host:'walmart.com', color:'#0053E2', btnBg:'#0053E2', btnFg:'#fff',     buy:'Buy now',     pay:'Place order',       orderNo:'2000104-88374217'}
 };
+const EB_ICON = {
+  cart:(c='#191919')=>`<svg width="22" height="22" viewBox="0 0 24 24"><path d="M4 6h2l2.4 10.5a1.5 1.5 0 0 0 1.5 1.2h7.4a1.5 1.5 0 0 0 1.5-1.2L20.5 9H7" stroke="${c}" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10" cy="20.5" r="1.2" fill="${c}"/><circle cx="17" cy="20.5" r="1.2" fill="${c}"/></svg>`,
+  user:(c='#191919')=>`<svg width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" stroke="${c}" stroke-width="1.7" fill="none"/><path d="M4 20c1.5-3.5 4.5-5 8-5s6.5 1.5 8 5" stroke="${c}" stroke-width="1.7" fill="none" stroke-linecap="round"/></svg>`,
+  menu:(c='#191919')=>`<svg width="22" height="22" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" stroke="${c}" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+  search:(c='#fff',s=18)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.2" stroke="${c}" stroke-width="2.2" fill="none"/><path d="M15.2 15.2L20 20" stroke="${c}" stroke-width="2.2" stroke-linecap="round"/></svg>`,
+  heart:(c='#191919')=>`<svg width="18" height="18" viewBox="0 0 24 24"><path d="M12 20.5s-7.5-4.6-9.3-9.4C1.5 7.6 3.6 4.5 6.9 4.5c2 0 3.4 1.1 4.1 2.2.7-1.1 2.1-2.2 4.1-2.2 3.3 0 5.4 3.1 4.2 6.6-1.8 4.8-9.3 9.4-9.3 9.4z" stroke="${c}" stroke-width="1.8" fill="none" stroke-linejoin="round"/></svg>`,
+  chev:(c='#191919')=>`<svg width="9" height="14" viewBox="0 0 9 14"><path d="M1.5 1.5L7 7l-5.5 5.5" stroke="${c}" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  check:(c='#fff')=>`<svg width="30" height="30" viewBox="0 0 34 34"><path d="M8 17.5l6.5 6.5L26 10.5" stroke="${c}" stroke-width="3.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  pin:(c='#191919')=>`<svg width="14" height="14" viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12A7 7 0 0 0 5 10c0 5.8 7 12 7 12z" stroke="${c}" stroke-width="1.8" fill="none"/><circle cx="12" cy="10" r="2.5" fill="${c}"/></svg>`,
+  shield:(c='#191919')=>`<svg width="18" height="18" viewBox="0 0 24 24"><path d="M12 2l8 3v6c0 5.3-3.4 9.3-8 11-4.6-1.7-8-5.7-8-11V5z" stroke="${c}" stroke-width="1.7" fill="none" stroke-linejoin="round"/><path d="M8.5 12l2.4 2.4 4.6-4.8" stroke="${c}" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  spark:()=>`<svg width="24" height="24" viewBox="0 0 24 24"><g fill="#FFC220"><rect x="10.6" y="1" width="2.8" height="6.4" rx="1.4"/><rect x="10.6" y="16.6" width="2.8" height="6.4" rx="1.4"/><rect x="10.6" y="1" width="2.8" height="6.4" rx="1.4" transform="rotate(60 12 12)"/><rect x="10.6" y="16.6" width="2.8" height="6.4" rx="1.4" transform="rotate(60 12 12)"/><rect x="10.6" y="1" width="2.8" height="6.4" rx="1.4" transform="rotate(-60 12 12)"/><rect x="10.6" y="16.6" width="2.8" height="6.4" rx="1.4" transform="rotate(-60 12 12)"/></g></svg>`
+};
+const EB_ADDR = () => state.addr || SAVED_ADDR;
+const ebStars = (c, n=5) => `<span style="color:${c}; letter-spacing:1px">${'★'.repeat(n)}</span>`;
 function shopLogoInline(store){
   if(store === 'shopee') return `<span style="display:inline-flex; align-items:center; gap:5px"><svg width="21" height="21" viewBox="0 0 24 24"><path d="${BRAND.shopee}" fill="#EE4D2D"/></svg><b style="font-size:19px; letter-spacing:-.3px; color:#EE4D2D">Shopee</b></span>`;
   if(store === 'amazon') return `<span style="display:inline-flex; flex-direction:column; line-height:1"><b style="font-size:19px; letter-spacing:-.5px; color:#131921">amazon</b><svg width="52" height="7" viewBox="0 0 52 7" style="margin-top:0"><path d="M2 1c12 7 36 7 46-2" stroke="#FF9900" stroke-width="2.2" fill="none" stroke-linecap="round"/></svg></span>`;
-  if(store === 'walmart') return `<span style="font-size:19px; font-weight:800; color:#0071CE">Walmart <span style="color:#FFC220">✻</span></span>`;
+  if(store === 'walmart') return `<span style="display:inline-flex; align-items:center; gap:4px; font-size:19px; font-weight:800; color:#0053E2">Walmart ${EB_ICON.spark()}</span>`;
   return `<span class="eb-logo"><i style="color:#E53238">e</i><i style="color:#0064D2">b</i><i style="color:#F5AF02">a</i><i style="color:#86B817">y</i></span>`;
 }
-function shopHead(store){
-  if(store === 'shopee') return `
+/* ---------- eBay (mobile web) ---------- */
+const EB_EBAY = {
+  head(){ return `
+      <div class="eb-hdr">${shopLogoInline('ebay')}<span class="sp"></span>${EB_ICON.user()}${EB_ICON.cart()}${EB_ICON.menu()}</div>
+      <div class="eb-search"><span class="in">Search for anything</span><span class="go">${EB_ICON.search()}</span></div>
+      <div style="display:flex; align-items:center; gap:4px; padding:0 14px 8px; font-size:12.5px; color:var(--ink-2)">${EB_ICON.pin('#555')} Ship to</div>`; },
+  item(p, a){ return `
+      ${this.head()}
+      <div style="position:relative">
+        <div class="eb-img" style="margin:0; border-radius:0; aspect-ratio:1">${art(p.art, 0, 'contain')}</div>
+        <span style="position:absolute; left:0; top:12px; background:#E53238; color:#fff; font-size:11px; font-weight:800; padding:4px 9px; border-radius:0 12px 12px 0">12 VIEWED IN THE LAST 24 HOURS</span>
+        <span style="position:absolute; right:14px; bottom:14px; background:#fff; border:1px solid #ccc; border-radius:20px; padding:6px 12px; font-size:13px; font-weight:600; display:flex; align-items:center; gap:6px">5 ${EB_ICON.heart()}</span>
+      </div>
+      <div style="text-align:center; padding:10px 0 4px; font-size:9px; letter-spacing:5px; color:#8E8E93"><span style="color:#191919">●</span>●●●●</div>
+      <div class="eb-body" style="padding-top:6px">
+        <div class="eb-title" style="font-size:19px; font-weight:700; line-height:1.3">${esc(p.name)}</div>
+        <div class="eb-seller" style="border:0; margin-top:14px; padding:6px 0"><span class="av">m</span><span style="flex:1"><b style="text-decoration:underline">mabula_official</b> (2437)<br>99.1% positive</span><span style="border:1px solid #191919; border-radius:20px; padding:8px 16px; font-size:14px; color:#191919">Message</span></div>
+        <div style="margin-top:10px; font-size:12px; color:var(--ink-3)">Price</div>
+        <div class="eb-price" style="margin-top:2px">US ${esc(a.price)}</div>
+        <div class="eb-sub">Was <s>US $${(parseFloat(a.price.slice(1))*1.11).toFixed(2)}</s> (10% off) · <u>Price details</u></div>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-top:14px; font-size:13px; color:var(--ink)"><span><b>Free 2–4 day shipping</b><br><span style="color:var(--ink-2)">Est. delivery <b>Tue, Aug 16 – Thu, Aug 18</b></span></span>${EB_ICON.chev()}</div>
+        <div style="display:flex; margin-top:14px; font-size:12.5px">
+          <span style="flex:1; border-right:1px solid var(--line); padding-right:10px"><span style="color:var(--ink-3)">Condition</span><br><u>New with tags</u></span>
+          <span style="flex:1; border-right:1px solid var(--line); padding:0 10px"><span style="color:var(--ink-3)">Brand</span><br>${esc(p.name.split(' ')[0])}</span>
+          <span style="flex:1; padding-left:10px"><span style="color:var(--ink-3)">Material</span><br>${p.art==='bag3' ? 'Suede' : 'Vegan leather'}</span>
+        </div>
+        <button class="eb-btn" id="ebBuy" style="margin-top:18px">Buy It Now</button>
+        <button class="eb-btn line">Add to cart</button>
+        <button class="eb-btn line">${EB_ICON.heart('#3665F3')} Add to Watchlist</button>
+        <div style="background:#F7F7F7; border-radius:12px; padding:14px; margin-top:16px; font-size:13px; color:var(--ink); line-height:1.45">
+          <div style="display:flex; gap:12px; align-items:flex-start"><span style="font-size:18px">⚡</span><span><b>People are checking this out.</b> 5 have added this to their watchlist.</span></div>
+          <div style="display:flex; gap:12px; align-items:flex-start; margin-top:12px"><span style="font-size:18px">↩</span><span><b>Breathe easy.</b> Free returns.</span></div>
+        </div>
+        <div style="font-size:18px; font-weight:700; margin-top:22px">About this item</div>
+        <div class="eb-row" style="padding-top:12px"><span class="k">Condition</span><span>New with tags</span></div>
+        <div class="eb-row"><span class="k">Quantity</span><span>3 available · 14 sold</span></div>
+        <div class="eb-row"><span class="k">Item number</span><span>366645814727</span></div>
+        <div class="eb-row"><span class="k">Brand</span><span>${esc(p.name.split(' ')[0])}</span></div>
+        <div class="eb-row"><span class="k">Color</span><span>${esc(p.specs[0].options[0].name)}</span></div>
+        <div style="display:flex; align-items:center; gap:10px; margin-top:16px; padding:12px 0; border-top:1px solid var(--line); font-size:13px; color:var(--ink)">${EB_ICON.shield()}<span><b>eBay Money Back Guarantee</b><br><span style="color:var(--ink-2)">Get the item you ordered or your money back.</span></span></div>
+      </div>`; },
+  checkout(p, a){ const ad = EB_ADDR(); return `
+      <div class="eb-hdr" style="padding-bottom:10px; border-bottom:1px solid var(--line)">${shopLogoInline('ebay')}<span class="sp"></span><span style="font-size:17px; font-weight:700">Checkout</span></div>
+      <div class="eb-body" style="padding-top:8px">
+        <div class="eb-sec" style="font-size:16px">Pay with</div>
+        <div class="eb-card"><div class="eb-item" style="gap:10px"><span class="ps-radio on" style="border-color:#3665F3"></span>${payLogo('visa',34,24)}<div class="nm" style="flex:1"><b>Visa ···· 4242</b><br><span style="color:var(--ink-3)">Exp. 08/29</span></div><u style="font-size:12.5px">Change</u></div></div>
+        <div class="eb-sec" style="font-size:16px">Ship to</div>
+        <div class="eb-card"><div style="display:flex; gap:10px; font-size:13px; line-height:1.5"><span style="flex:1">Jack Tate<br>${esc(ad.address)}<br>${esc(ad.phone)}</span><u style="font-size:12.5px">Change</u></div></div>
+        <div class="eb-sec" style="font-size:16px">Review item and shipping</div>
+        <div class="eb-card">
+          <div style="font-size:12.5px; color:var(--ink-2); margin-bottom:8px">Seller: <b style="color:var(--ink)">mabula_official</b></div>
+          <div class="eb-item" style="align-items:flex-start"><div class="th">${art(p.art)}</div><div style="flex:1"><div class="nm">${esc(p.name)}</div><div class="eb-sub" style="margin-top:4px"><b style="color:var(--ink)">US ${esc(a.price)}</b> · Qty 1</div></div></div>
+          <div class="eb-row" style="padding-bottom:0; margin-top:6px; border-top:1px solid var(--line); padding-top:10px"><span class="k">Delivery</span><span style="text-align:right">Est. <b>Aug 16 – Aug 18</b><br><span style="color:var(--ink-3); font-size:12px">Free 2–4 day shipping</span></span></div>
+        </div>
+        <div class="eb-sec" style="font-size:16px; margin-top:18px">Order summary</div>
+        <div class="eb-row"><span class="k">Item (1)</span><span>US ${esc(a.price)}</span></div>
+        <div class="eb-row"><span class="k">Shipping</span><span>Free</span></div>
+        <div class="eb-row"><span class="k">Tax*</span><span>US ${esc(a.tax)}</span></div>
+        <div class="eb-row" style="font-weight:800; font-size:15px; border-top:1px solid var(--line)"><span>Order total</span><span>US ${esc(a.total)}</span></div>
+        <button class="eb-btn" id="ebPay">Confirm and pay</button>
+        <div style="font-size:11px; color:var(--ink-3); line-height:1.5; margin-top:12px">By selecting Confirm and pay, you agree to the eBay <u>User Agreement</u> and <u>Privacy Notice</u>. *Sales tax is estimated for the shipping address.</div>
+        <div style="display:flex; align-items:center; gap:8px; margin-top:12px; font-size:12.5px; color:var(--ink)">${EB_ICON.shield()}Purchase protected by <b>eBay Money Back Guarantee</b></div>
+      </div>`; },
+  done(p, a){ return `
+      <div class="eb-hdr" style="padding-bottom:10px; border-bottom:1px solid var(--line)">${shopLogoInline('ebay')}<span class="sp"></span>${EB_ICON.user()}${EB_ICON.cart()}${EB_ICON.menu()}</div>
+      <div class="eb-body">
+        <div class="eb-ok" style="background:#2E8B57; margin-top:30px">${EB_ICON.check()}</div>
+        <div class="eb-done-h">Thanks, Jack! Your order is confirmed.</div>
+        <div class="eb-done-p">Order number <b style="color:var(--ink)">${SHOP_META.ebay.orderNo}</b><br>A confirmation email is on its way to jack.tate@example.com.</div>
+        <div class="eb-card" style="margin-top:18px">
+          <div class="eb-item" style="align-items:flex-start"><div class="th">${art(p.art)}</div><div style="flex:1"><div class="nm">${esc(p.name)}</div><div class="eb-sub" style="margin-top:4px"><b style="color:var(--ink)">US ${esc(a.total)}</b> paid with Visa ···· 4242</div></div></div>
+          <div class="eb-row" style="padding-bottom:0; margin-top:6px; border-top:1px solid var(--line); padding-top:10px"><span class="k">Delivery</span><span>Est. <b>Aug 16 – Aug 18</b></span></div>
+        </div>
+        <button class="eb-btn" id="ebDone">View order details</button>
+        <button class="eb-btn line">Continue shopping</button>
+      </div>`; }
+};
+/* ---------- Walmart (mobile web) ---------- */
+const EB_WALMART = {
+  head(title){ return `
+      <div style="background:#0053E2; color:#fff; padding:10px 12px; display:flex; align-items:center; gap:10px">
+        ${title ? `<span style="font-size:22px; line-height:1">‹</span>${EB_ICON.spark()}<span style="font-size:17px; font-weight:700; flex:1">${title}</span>` : `${EB_ICON.menu('#fff')}${EB_ICON.spark()}
+        <div style="background:#fff; border-radius:22px; padding:5px 5px 5px 14px; font-size:13.5px; color:var(--ink-4); flex:1; display:flex; align-items:center; justify-content:space-between">Search Walmart<span style="width:30px; height:30px; border-radius:50%; background:#0053E2; display:flex; align-items:center; justify-content:center">${EB_ICON.search('#fff',16)}</span></div>
+        <span style="position:relative; display:flex; flex-direction:column; align-items:center; font-size:10px">${EB_ICON.cart('#fff')}<span style="position:absolute; top:-5px; right:-4px; background:#FFC220; color:#0053E2; font-weight:800; border-radius:8px; padding:0 5px; font-size:10px">0</span>$0.00</span>`}
+      </div>
+      ${title ? '' : `<div style="background:#2A6BE6; color:#fff; padding:8px 14px; font-size:13px; font-weight:700; display:flex; align-items:center; gap:8px"><span style="width:22px; height:22px; border-radius:50%; background:#0053E2; display:inline-flex; align-items:center; justify-content:center; font-size:12px">📍</span>Deliver to Jack — San Francisco, 94105</div>`}`; },
+  price(a, big=true){ const [d, c] = a.price.slice(1).split('.'); return `<span style="font-size:${big?30:20}px; font-weight:800; color:var(--ink); line-height:1"><sup style="font-size:${big?15:11}px; vertical-align:top; position:relative; top:${big?4:2}px">$</sup>${d}<sup style="font-size:${big?15:11}px; vertical-align:top; position:relative; top:${big?4:2}px">${c}</sup></span>`; },
+  item(p, a){ return `
+      ${this.head()}
+      <div style="position:relative; margin:14px 14px 0">
+        <div class="eb-img" style="margin:0; aspect-ratio:1; background:#fff; border:1px solid var(--line)">${art(p.art, 0, 'contain')}</div>
+        <span style="position:absolute; left:10px; top:10px; background:#fff; border:1px solid var(--line); border-radius:4px; padding:3px 7px; font-size:11px; font-weight:700; color:var(--ink)">Popular pick</span>
+        <span style="position:absolute; right:10px; top:10px; width:34px; height:34px; border-radius:50%; background:#fff; border:1px solid var(--line); display:flex; align-items:center; justify-content:center">${EB_ICON.heart()}</span>
+      </div>
+      <div class="eb-body">
+        <div style="font-size:12.5px; color:var(--ink-2)"><span style="background:#E6F1FB; color:#004F9A; font-weight:700; padding:2px 6px; border-radius:3px; font-size:11px">Best seller</span> &nbsp;${esc(p.name.split(' ')[0])}</div>
+        <div class="eb-title" style="margin-top:8px; font-size:15.5px; font-weight:400">${esc(p.name)}</div>
+        <div style="display:flex; align-items:center; gap:6px; margin-top:8px; font-size:12.5px; color:var(--ink-2)">${ebStars('#F5B400')}<span>(4.5)</span><u>1,204 ratings</u></div>
+        <div style="margin-top:14px; display:flex; align-items:baseline; gap:8px"><span style="font-size:12px; font-weight:700; color:#2A8703">Now</span>${this.price(a)}</div>
+        <div class="eb-sub"><s>$${(parseFloat(a.price.slice(1))*1.12).toFixed(2)}</s> &nbsp;<span style="color:#2A8703; font-weight:700">You save $${(parseFloat(a.price.slice(1))*0.12).toFixed(2)}</span></div>
+        <div style="font-size:13px; color:var(--ink); margin-top:8px"><b>Free shipping</b>, arrives <b>Aug 16</b> · <u>Order within 6 hr 12 min</u></div>
+        <div style="display:flex; gap:10px; margin-top:16px">
+          <button class="eb-btn line" style="flex:1; margin:0; border-color:#0053E2; color:#0053E2; background:#fff">Add to cart</button>
+          <button class="eb-btn" id="ebBuy" style="flex:1; margin:0; background:#0053E2">Buy now</button>
+        </div>
+        <div style="font-size:15px; font-weight:700; margin-top:22px">How you'll get this item:</div>
+        <div style="display:flex; gap:8px; margin-top:10px; text-align:center; font-size:12px">
+          <div style="flex:1; border:2px solid #0053E2; border-radius:8px; padding:10px 6px"><div style="font-size:18px">🚚</div><b>Shipping</b><br><span style="color:var(--ink-2)">Arrives Aug 16</span></div>
+          <div style="flex:1; border:1px solid var(--line); border-radius:8px; padding:10px 6px; color:var(--ink-3)"><div style="font-size:18px">🏬</div><b>Pickup</b><br>Not available</div>
+          <div style="flex:1; border:1px solid var(--line); border-radius:8px; padding:10px 6px; color:var(--ink-3)"><div style="font-size:18px">🛵</div><b>Delivery</b><br>Not available</div>
+        </div>
+        <div style="margin-top:16px; padding:12px; border:1px solid var(--line); border-radius:8px; font-size:13px; line-height:1.55">
+          <div><span style="color:#2A8703">✔</span> <b>Sold and shipped by Walmart.com</b></div>
+          <div><span style="color:#2A8703">✔</span> Free 90-day returns</div>
+          <div><span style="color:#2A8703">✔</span> Free shipping on orders $35+</div>
+        </div>
+        <div class="eb-row" style="margin-top:12px; font-size:15px; font-weight:700; border-top:1px solid var(--line); padding-top:14px"><span>About this item</span>${EB_ICON.chev()}</div>
+        <div class="eb-row" style="font-size:15px; font-weight:700"><span>Specifications</span>${EB_ICON.chev()}</div>
+        <div class="eb-row" style="font-size:15px; font-weight:700"><span>Customer reviews (1,204)</span>${EB_ICON.chev()}</div>
+      </div>`; },
+  checkout(p, a){ const ad = EB_ADDR(); return `
+      ${this.head('Checkout')}
+      <div class="eb-body" style="background:#F5F5F5; padding:12px">
+        <div class="eb-card" style="background:#fff; margin:0">
+          <div style="font-size:15px; font-weight:700">Shipping <span style="font-weight:400; color:var(--ink-2)">· arrives Aug 16</span></div>
+          <div class="eb-item" style="margin-top:10px; align-items:flex-start"><div class="th">${art(p.art)}</div><div style="flex:1"><div class="nm">${esc(p.name)}</div><div class="eb-sub" style="margin-top:4px">Qty 1</div></div>${this.price(a,false)}</div>
+        </div>
+        <div class="eb-card" style="background:#fff"><div style="display:flex; justify-content:space-between; font-size:15px; font-weight:700"><span>Delivery address</span><u style="font-size:12.5px; font-weight:400">Edit</u></div><div style="font-size:13px; line-height:1.5; margin-top:6px">Jack Tate<br>${esc(ad.address)}<br>${esc(ad.phone)}</div></div>
+        <div class="eb-card" style="background:#fff"><div style="display:flex; justify-content:space-between; font-size:15px; font-weight:700"><span>Payment method</span><u style="font-size:12.5px; font-weight:400">Edit</u></div><div class="eb-item" style="margin-top:8px; gap:8px">${payLogo('visa',30,21)}<div class="nm">Visa ending in 4242<br><span style="color:var(--ink-3)">Exp. 08/29</span></div></div></div>
+        <div class="eb-card" style="background:#fff">
+          <div style="font-size:15px; font-weight:700; margin-bottom:4px">Order summary</div>
+          <div class="eb-row"><span class="k">Subtotal (1 item)</span><span>${esc(a.price)}</span></div>
+          <div class="eb-row"><span class="k">Shipping</span><span style="color:#2A8703; font-weight:700">Free</span></div>
+          <div class="eb-row"><span class="k">Taxes</span><span>${esc(a.tax)}</span></div>
+          <div class="eb-row" style="font-weight:800; font-size:15px; border-top:1px solid var(--line)"><span>Estimated total</span><span>${esc(a.total)}</span></div>
+        </div>
+        <button class="eb-btn" id="ebPay" style="background:#0053E2">Place order</button>
+        <div style="font-size:11px; color:var(--ink-3); line-height:1.5; margin-top:10px; text-align:center">By placing this order, you agree to Walmart's <u>Terms of Use</u> and <u>Privacy Policy</u>.</div>
+      </div>`; },
+  done(p, a){ return `
+      ${this.head('Order confirmation')}
+      <div class="eb-body" style="background:#F5F5F5; padding:12px">
+        <div class="eb-card" style="background:#fff; margin:0; text-align:center; padding:22px 14px">
+          <div class="eb-ok" style="background:#2A8703; margin:0 auto 12px; width:56px; height:56px">${EB_ICON.check()}</div>
+          <div class="eb-done-h">Thanks for your order!</div>
+          <div class="eb-done-p">Order# <b style="color:var(--ink)">${SHOP_META.walmart.orderNo}</b><br>We'll email a confirmation to jack.tate@example.com.</div>
+        </div>
+        <div class="eb-card" style="background:#fff">
+          <div style="font-size:15px; font-weight:700">Shipping <span style="font-weight:400; color:var(--ink-2)">· arrives <b style="color:var(--ink)">Aug 16</b></span></div>
+          <div class="eb-item" style="margin-top:10px; align-items:flex-start"><div class="th">${art(p.art)}</div><div style="flex:1"><div class="nm">${esc(p.name)}</div><div class="eb-sub" style="margin-top:4px">Qty 1 · ${esc(a.total)} paid with Visa ending in 4242</div></div></div>
+        </div>
+        <button class="eb-btn" id="ebDone" style="background:#0053E2">Track order</button>
+        <button class="eb-btn line" style="border-color:#0053E2; color:#0053E2; background:#fff">Continue shopping</button>
+      </div>`; }
+};
+/* ---------- Shopee (mobile web) ---------- */
+const EB_SHOPEE = {
+  head(title){ return title ? `
+      <div style="display:flex; align-items:center; gap:12px; padding:12px 14px; border-bottom:1px solid var(--line); font-size:17px; font-weight:600; color:var(--ink)"><span style="color:#EE4D2D; font-size:24px; line-height:1">‹</span>${title}</div>` : `
       <div style="background:#EE4D2D; color:#fff; padding:10px 14px; display:flex; align-items:center; gap:12px">
         <svg width="28" height="28" viewBox="0 0 24 24"><path d="${BRAND.shopee}" fill="#fff"/></svg>
-        <div style="background:#fff; border-radius:4px; padding:8px 12px; font-size:12.5px; color:var(--ink-4); flex:1; display:flex; align-items:center; gap:8px"><svg width="15" height="15" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.2" stroke="#8E8E93" stroke-width="2.2" fill="none"/><path d="M15.2 15.2L20 20" stroke="#8E8E93" stroke-width="2.2" stroke-linecap="round"/></svg>Search on Shopee</div>
-        <svg width="22" height="22" viewBox="0 0 24 24"><path d="M4 6h2l2.4 10.5a1.5 1.5 0 0 0 1.5 1.2h7.4a1.5 1.5 0 0 0 1.5-1.2L20.5 9H7" stroke="#fff" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div style="background:#fff; border-radius:4px; padding:8px 12px; font-size:12.5px; color:var(--ink-4); flex:1; display:flex; align-items:center; gap:8px">${EB_ICON.search('#8E8E93',15)}Search on Shopee</div>
+        ${EB_ICON.cart('#fff')}
+      </div>`; },
+  mall(){ return `<span style="background:#D0011B; color:#fff; font-size:10px; font-weight:700; padding:2px 5px; border-radius:2px; vertical-align:middle">Mall</span>`; },
+  item(p, a){ const base = parseFloat(a.price.slice(1)); return `
+      ${this.head()}
+      <div style="position:relative">
+        <div class="eb-img" style="margin:0; border-radius:0; aspect-ratio:1; background:#fff">${art(p.art, 0, 'contain')}</div>
+        <span style="position:absolute; right:12px; bottom:12px; background:rgba(0,0,0,.55); color:#fff; font-size:11px; padding:3px 9px; border-radius:12px">1/5</span>
       </div>
-      <div style="background:#FFF3EF; color:#EE4D2D; font-size:12px; font-weight:600; padding:7px 14px">🚚 Free shipping · 15-day free returns · Shopee Guarantee</div>`;
-  if(store === 'amazon') return `
-      <div style="background:#131921; color:#fff; padding:10px 14px; display:flex; align-items:center; gap:12px">
-        <svg width="20" height="16" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
-        <span style="display:inline-flex; flex-direction:column; line-height:1"><b style="font-size:19px; letter-spacing:-.5px">amazon</b><svg width="52" height="7" viewBox="0 0 52 7"><path d="M2 1c12 7 36 7 46-2" stroke="#FF9900" stroke-width="2.2" fill="none" stroke-linecap="round"/></svg></span>
-        <span style="flex:1"></span>
-        <span style="font-size:12.5px">Sign in ›</span>
-        <svg width="22" height="22" viewBox="0 0 24 24"><path d="M4 6h2l2.4 10.5a1.5 1.5 0 0 0 1.5 1.2h7.4a1.5 1.5 0 0 0 1.5-1.2L20.5 9H7" stroke="#fff" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>
-      <div style="padding:8px 12px; background:#232F3E"><div style="background:#fff; border-radius:8px; display:flex; overflow:hidden"><span style="flex:1; padding:9px 12px; font-size:13.5px; color:var(--ink-4)">Search Amazon</span><span style="width:46px; background:#FEBD69; display:flex; align-items:center; justify-content:center"><svg width="17" height="17" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.2" stroke="#131921" stroke-width="2.2" fill="none"/><path d="M15.2 15.2L20 20" stroke="#131921" stroke-width="2.2" stroke-linecap="round"/></svg></span></div></div>
-      <div style="background:#37475A; color:#fff; font-size:12px; padding:7px 14px">⌖ Deliver to Jack — San Francisco 94105</div>`;
-  if(store === 'walmart') return `
-      <div style="background:#0071CE; color:#fff; padding:11px 14px; display:flex; align-items:center; gap:12px">
-        <span style="font-size:19px; font-weight:800; white-space:nowrap">Walmart <span style="color:#FFC220">✻</span></span>
-        <div style="background:#fff; border-radius:17px; padding:8px 14px; font-size:12.5px; color:var(--ink-4); flex:1">Search everything at Walmart</div>
-        <svg width="22" height="22" viewBox="0 0 24 24"><path d="M4 6h2l2.4 10.5a1.5 1.5 0 0 0 1.5 1.2h7.4a1.5 1.5 0 0 0 1.5-1.2L20.5 9H7" stroke="#fff" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>`;
-  return `
-      <div class="eb-hdr">${shopLogoInline('ebay')}<span class="sp"></span>
-        <svg width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" stroke="#191919" stroke-width="1.7" fill="none"/><path d="M4 20c1.5-3.5 4.5-5 8-5s6.5 1.5 8 5" stroke="#191919" stroke-width="1.7" fill="none" stroke-linecap="round"/></svg>
-        <svg width="22" height="22" viewBox="0 0 24 24"><path d="M4 6h2l2.4 10.5a1.5 1.5 0 0 0 1.5 1.2h7.4a1.5 1.5 0 0 0 1.5-1.2L20.5 9H7" stroke="#191919" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <svg width="22" height="22" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" stroke="#191919" stroke-width="1.8" stroke-linecap="round"/></svg>
-      </div>
-      <div class="eb-search"><span class="in">Search for anything</span><span class="go"><svg width="18" height="18" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.2" stroke="#fff" stroke-width="2.2" fill="none"/><path d="M15.2 15.2L20 20" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg></span></div>`;
-}
-function shopSellerRow(store){
-  if(store === 'shopee') return `<div class="eb-sub" style="margin-top:10px"><span style="background:#EE4D2D; color:#fff; padding:2px 6px; border-radius:3px; font-size:11px; font-weight:700">Mall</span> <b>MABULA Official Store</b> · 100% Authentic</div><div class="eb-sub">4.8 ★★★★★ (3,217 ratings) · 5.1K sold · Ships from San Francisco, CA</div>`;
-  if(store === 'amazon') return `<div class="eb-sub" style="margin-top:10px; color:#007185; font-weight:600">Visit the MABULA Store</div><div class="eb-sub">4.6 ★★★★☆ (12,438 ratings) · <span style="background:#232F3E; color:#fff; padding:2px 6px; border-radius:3px; font-size:11px">Amazon's Choice</span></div>`;
-  if(store === 'walmart') return `<div class="eb-sub" style="margin-top:10px"><b>Sold & shipped by Walmart</b> · Free 90-day returns</div>`;
-  return `<div class="eb-seller"><span class="av">m</span><span><b>mabula_official</b> (2.4K) · 99.1% positive<br>Ships from San Francisco, CA</span></div>`;
-}
+      <div class="eb-body" style="padding-top:12px">
+        <div style="display:flex; align-items:baseline; gap:8px"><span style="font-size:24px; font-weight:700; color:#EE4D2D">${esc(a.price)}</span><s style="font-size:13px; color:var(--ink-3)">$${(base*1.11).toFixed(2)}</s><span style="background:#FFEEE8; color:#EE4D2D; font-size:11px; font-weight:700; padding:2px 5px; border-radius:2px">10% OFF</span></div>
+        <div style="display:flex; gap:6px; margin-top:8px; font-size:11px"><span style="border:1px solid #EE4D2D; color:#EE4D2D; padding:2px 5px; border-radius:2px">Free Shipping</span><span style="border:1px solid #EE4D2D; color:#EE4D2D; padding:2px 5px; border-radius:2px">15-Day Free Returns</span><span style="border:1px solid #26AA99; color:#26AA99; padding:2px 5px; border-radius:2px">Authentic</span></div>
+        <div class="eb-title" style="margin-top:12px; font-size:15px; font-weight:500">${this.mall()} ${esc(p.name)}</div>
+        <div style="display:flex; align-items:center; gap:8px; margin-top:10px; font-size:13px; color:var(--ink-2)"><b style="color:var(--ink)">4.8</b>${ebStars('#EE4D2D')}<span style="color:var(--line-2)">|</span>5.1K sold</div>
+        <div style="display:flex; align-items:center; gap:10px; margin-top:14px; padding:12px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line); font-size:13px">${EB_ICON.shield('#26AA99')}<span style="flex:1"><b style="color:#26AA99">Shopee Guarantee</b><br><span style="color:var(--ink-2)">Get the items you ordered or get your money back.</span></span>${EB_ICON.chev('#8E8E93')}</div>
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 0; border-bottom:1px solid var(--line); font-size:13px"><span>Variation <span style="color:var(--ink-3)">· ${esc(p.specs[0].options[0].name)}</span></span>${EB_ICON.chev('#8E8E93')}</div>
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 0; border-bottom:1px solid var(--line); font-size:13px"><span>Shipping <span style="color:var(--ink-3)">· Receive by Aug 16 – Aug 18</span></span>${EB_ICON.chev('#8E8E93')}</div>
+        <div style="display:flex; align-items:center; gap:10px; padding:14px 0"><span style="width:44px; height:44px; border-radius:50%; background:#EE4D2D; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:16px">M</span><span style="flex:1; font-size:13px; line-height:1.4"><b>MABULA Official Store</b> ${this.mall()}<br><span style="color:var(--ink-3); font-size:12px">Active 5 minutes ago</span></span><span style="border:1px solid #EE4D2D; color:#EE4D2D; border-radius:2px; padding:6px 10px; font-size:12px">View Shop</span></div>
+        <div style="display:flex; text-align:center; font-size:12px; color:var(--ink-3); padding-bottom:14px; border-bottom:1px solid var(--line)"><span style="flex:1"><b style="color:#EE4D2D">1.2K</b> Products</span><span style="flex:1"><b style="color:#EE4D2D">4.9</b> Rating</span><span style="flex:1"><b style="color:#EE4D2D">98%</b> Chat Response</span></div>
+        <div style="display:flex; gap:0; margin-top:16px; border-radius:4px; overflow:hidden">
+          <span style="flex:0 0 26%; background:#26AA99; color:#fff; font-size:11px; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:8px 0">💬<span>Chat now</span></span>
+          <span style="flex:0 0 26%; background:#26AA99; color:#fff; font-size:11px; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:8px 0; border-left:1px solid rgba(255,255,255,.4)">${EB_ICON.cart('#fff')}<span>Add to Cart</span></span>
+          <button class="eb-btn" id="ebBuy" style="flex:1; margin:0; height:auto; border-radius:0; background:#EE4D2D; font-size:15px">Buy Now</button>
+        </div>
+      </div>`; },
+  checkout(p, a){ const ad = EB_ADDR(); return `
+      ${this.head('Checkout')}
+      <div class="eb-body" style="background:#F5F5F5; padding:0 0 12px">
+        <div style="background:#fff; padding:12px 14px; display:flex; gap:10px; align-items:flex-start; font-size:13px; border-bottom:2px dashed #FFD3C7">${EB_ICON.pin('#EE4D2D')}<span style="flex:1; line-height:1.5"><b>Delivery Address</b><br>Jack Tate ${esc(ad.phone)}<br><span style="color:var(--ink-2)">${esc(ad.address)}</span></span>${EB_ICON.chev('#8E8E93')}</div>
+        <div style="background:#fff; padding:12px 14px; margin-top:8px">
+          <div style="font-size:13px">${this.mall()} <b>MABULA Official Store</b></div>
+          <div class="eb-item" style="margin-top:10px; align-items:flex-start"><div class="th">${art(p.art)}</div><div style="flex:1"><div class="nm">${esc(p.name)}</div><div class="eb-sub" style="margin-top:4px">Variation: ${esc(p.specs[0].options[0].name)}</div></div><span style="font-size:13px">${esc(a.price)}<br><span style="color:var(--ink-3)">x1</span></span></div>
+          <div style="display:flex; justify-content:space-between; margin-top:12px; padding-top:12px; border-top:1px solid var(--line); font-size:13px"><span><b>Shipping Option</b><br><span style="color:var(--ink-2)">Standard Delivery · Receive by Aug 16 – Aug 18</span></span><span style="text-align:right"><span style="color:#26AA99; font-weight:600">Free</span><br>${EB_ICON.chev('#8E8E93')}</span></div>
+          <div style="display:flex; justify-content:space-between; margin-top:12px; padding-top:12px; border-top:1px solid var(--line); font-size:13px"><span>Order Total (1 Item)</span><b style="color:#EE4D2D">${esc(a.price)}</b></div>
+        </div>
+        <div style="background:#fff; padding:12px 14px; margin-top:8px; display:flex; justify-content:space-between; font-size:13px"><span>🎟 <b>Shopee Voucher</b></span><span style="color:var(--ink-3)">Select or enter code ${EB_ICON.chev('#8E8E93')}</span></div>
+        <div style="background:#fff; padding:12px 14px; margin-top:8px; display:flex; justify-content:space-between; font-size:13px"><b>Payment Method</b><span>Credit/Debit Card ···· 4242 ${EB_ICON.chev('#8E8E93')}</span></div>
+        <div style="background:#fff; padding:12px 14px; margin-top:8px; font-size:13px">
+          <b>Payment Details</b>
+          <div class="eb-row" style="padding:8px 0 2px"><span class="k">Merchandise Subtotal</span><span>${esc(a.price)}</span></div>
+          <div class="eb-row" style="padding:4px 0"><span class="k">Shipping Subtotal</span><span>$0.00</span></div>
+          <div class="eb-row" style="padding:4px 0"><span class="k">Tax</span><span>${esc(a.tax)}</span></div>
+          <div class="eb-row" style="padding:8px 0 0; font-weight:700; font-size:15px"><span>Total Payment</span><span style="color:#EE4D2D">${esc(a.total)}</span></div>
+        </div>
+        <div style="background:#fff; margin-top:8px; padding:10px 0 10px 14px; display:flex; align-items:center; gap:12px; border-top:1px solid var(--line)"><span style="flex:1; font-size:13px; text-align:right">Total <b style="color:#EE4D2D; font-size:17px">${esc(a.total)}</b></span><button class="eb-btn" id="ebPay" style="width:44%; margin:0; height:48px; border-radius:0; background:#EE4D2D">Place Order</button></div>
+      </div>`; },
+  done(p, a){ return `
+      ${this.head('Order Placed')}
+      <div class="eb-body" style="background:#F5F5F5; padding:0 0 12px">
+        <div style="background:#fff; text-align:center; padding:26px 14px 20px">
+          <div class="eb-ok" style="background:#26AA99; margin:0 auto 12px; width:56px; height:56px">${EB_ICON.check()}</div>
+          <div class="eb-done-h">Thank you for your order!</div>
+          <div class="eb-done-p">Order ID <b style="color:var(--ink)">${SHOP_META.shopee.orderNo}</b><br>${esc(a.total)} paid with Credit/Debit Card ···· 4242</div>
+        </div>
+        <div style="background:#fff; padding:12px 14px; margin-top:8px">
+          <div style="font-size:13px">${this.mall()} <b>MABULA Official Store</b><span style="float:right; color:#EE4D2D">To Ship</span></div>
+          <div class="eb-item" style="margin-top:10px; align-items:flex-start"><div class="th">${art(p.art)}</div><div style="flex:1"><div class="nm">${esc(p.name)}</div><div class="eb-sub" style="margin-top:4px">Variation: ${esc(p.specs[0].options[0].name)} · x1</div></div><span style="font-size:13px">${esc(a.price)}</span></div>
+          <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--line); font-size:13px; color:var(--ink-2)">🚚 Standard Delivery · Receive by <b style="color:var(--ink)">Aug 16 – Aug 18</b></div>
+        </div>
+        <div style="padding:0 14px"><button class="eb-btn" id="ebDone" style="border-radius:2px; background:#EE4D2D">View Order</button><button class="eb-btn line" style="border-radius:2px; border-color:var(--line-2); color:var(--ink)">Continue Shopping</button></div>
+      </div>`; }
+};
+/* ---------- Amazon (generic fallback, kept for completeness) ---------- */
+const EB_AMAZON = {
+  item(p, a){ const m = SHOP_META.amazon; return `
+      <div style="background:#131921; color:#fff; padding:10px 14px; display:flex; align-items:center; gap:12px">${EB_ICON.menu('#fff')}${shopLogoInline('amazon').replace('#131921','#fff')}<span style="flex:1"></span><span style="font-size:12.5px">Sign in ›</span>${EB_ICON.cart('#fff')}</div>
+      <div style="padding:8px 12px; background:#232F3E"><div style="background:#fff; border-radius:8px; display:flex; overflow:hidden"><span style="flex:1; padding:9px 12px; font-size:13.5px; color:var(--ink-4)">Search Amazon</span><span style="width:46px; background:#FEBD69; display:flex; align-items:center; justify-content:center">${EB_ICON.search('#131921')}</span></div></div>
+      <div style="background:#37475A; color:#fff; font-size:12px; padding:7px 14px">⌖ Deliver to Jack — San Francisco 94105</div>
+      <div class="eb-img" style="margin-top:12px">${art(p.art, 0, 'contain')}</div>
+      <div class="eb-body">
+        <div class="eb-title">${esc(p.name)}</div>
+        <div class="eb-sub" style="margin-top:10px; color:#007185; font-weight:600">Visit the MABULA Store</div>
+        <div class="eb-sub">4.6 ★★★★☆ (12,438 ratings) · <span style="background:#232F3E; color:#fff; padding:2px 6px; border-radius:3px; font-size:11px">Amazon's Choice</span></div>
+        <div class="eb-price">${esc(a.price)}</div>
+        <div class="eb-sub">FREE delivery <b>Aug 16 – Aug 18</b></div>
+        <button class="eb-btn" id="ebBuy" style="background:${m.btnBg}; color:${m.btnFg}">${m.buy}</button>
+        <button class="eb-btn line" style="background:#FFD814; border-color:#FCD200; color:#0F1111">Add to Cart</button>
+      </div>`; },
+  checkout(p, a){ const ad = EB_ADDR(); return `
+      <div class="eb-hdr">${shopLogoInline('amazon')}<span class="sp"></span><span style="font-size:15px;font-weight:700">Checkout</span></div>
+      <div class="eb-body" style="padding-top:4px">
+        <div class="eb-sec">Ship to</div>
+        <div class="eb-card"><div style="font-size:13px; line-height:1.5">Jack Tate<br>${esc(ad.address)}<br>${esc(ad.phone)}</div></div>
+        <div class="eb-sec">Review item</div>
+        <div class="eb-card"><div class="eb-item"><div class="th">${art(p.art)}</div><div><div class="nm">${esc(p.shortName)}</div><div class="eb-sub" style="margin-top:3px">${esc(a.price)} · Qty 1</div></div></div></div>
+        <div class="eb-sec">Pay with</div>
+        <div class="eb-card"><div class="eb-item" style="gap:8px">${payLogo('visa',30,21)}<div class="nm"><b>Visa ···· 4242</b></div></div></div>
+        <div class="eb-sec">Order total</div>
+        <div class="eb-row"><span class="k">Item</span><span>${esc(a.price)}</span></div>
+        <div class="eb-row"><span class="k">Shipping</span><span>Free</span></div>
+        <div class="eb-row"><span class="k">Tax</span><span>${esc(a.tax)}</span></div>
+        <div class="eb-row" style="font-weight:800; border-top:1px solid var(--line)"><span>Order total</span><span>${esc(a.total)}</span></div>
+        <button class="eb-btn" id="ebPay" style="background:#FFD814; color:#0F1111">Place your order</button>
+      </div>`; },
+  done(p, a){ return `
+      <div class="eb-hdr">${shopLogoInline('amazon')}</div>
+      <div class="eb-body">
+        <div class="eb-ok" style="background:#FF9900">${EB_ICON.check()}</div>
+        <div class="eb-done-h">Order placed, thanks!</div>
+        <div class="eb-done-p">Order number: ${SHOP_META.amazon.orderNo}<br>${esc(a.total)} paid with Visa ···· 4242 · Arriving Aug 16 – Aug 18</div>
+        <button class="eb-btn" id="ebDone" style="background:#FFD814; color:#0F1111">Done</button>
+      </div>`; }
+};
+const EB_SITES = {ebay:EB_EBAY, walmart:EB_WALMART, shopee:EB_SHOPEE, amazon:EB_AMAZON};
 function openShopBrowser(store, key, price){
   state.ebStore = SHOP_META[store] ? store : 'ebay';
   state.ebKey = key || 'bag2';
@@ -2292,56 +2539,14 @@ function closeEbay(){ $('#ebayview').classList.remove('on'); }
 $('#ebX').addEventListener('click', closeEbay);
 function renderEB(view){
   const store = state.ebStore || 'ebay';
-  const m = SHOP_META[store];
+  const site = EB_SITES[store] || EB_SITES.ebay;
   const p = PRODUCTS[state.ebKey || 'bag2'];
   const a = amountsFor(state.ebKey || 'bag2', state.ebPrice);
-  const btn = (id, label) => `<button class="eb-btn" id="${id}" style="background:${m.btnBg}; color:${m.btnFg}">${label}</button>`;
   const body = $('#ebBody');
-  if(view === 'item'){
-    body.innerHTML = `
-      ${shopHead(store)}
-      <div class="eb-img" style="margin-top:12px">${art(p.art, 0, 'contain')}</div>
-      <div class="eb-body">
-        <div class="eb-title">${esc(p.name)}</div>
-        <div class="eb-cond">Condition: New with tags</div>
-        <div class="eb-price">US ${esc(a.price)}</div>
-        <div class="eb-sub">Free 2–4 day shipping · 30-day returns</div>
-        ${btn('ebBuy', m.buy)}
-        <button class="eb-btn line">Add to cart</button>
-        ${shopSellerRow(store)}
-      </div>`;
-    $('#ebBuy').addEventListener('click', ()=>renderEB('checkout'));
-  }
-  if(view === 'checkout'){
-    body.innerHTML = `
-      <div class="eb-hdr">${shopLogoInline(store)}<span class="sp"></span><span style="font-size:15px;font-weight:700">Checkout</span></div>
-      <div class="eb-body" style="padding-top:4px">
-        <div class="eb-sec">Ship to</div>
-        <div class="eb-card"><div style="font-size:13px; line-height:1.5">Jack Tate<br>${esc((state.addr||SAVED_ADDR).address)}<br>${esc((state.addr||SAVED_ADDR).phone)}</div></div>
-        <div class="eb-sec">Review item</div>
-        <div class="eb-card"><div class="eb-item"><div class="th">${art(p.art)}</div><div><div class="nm">${esc(p.shortName)}</div><div class="eb-sub" style="margin-top:3px">${esc(a.price)} · Qty 1</div></div></div></div>
-        <div class="eb-sec">Pay with</div>
-        <div class="eb-card"><div class="eb-item" style="gap:8px">${payLogo('visa',30,21)}<div class="nm"><b>Visa ···· 4242</b></div></div></div>
-        <div class="eb-sec">Order total</div>
-        <div class="eb-row"><span class="k">Item</span><span>${esc(a.price)}</span></div>
-        <div class="eb-row"><span class="k">Shipping</span><span>Free</span></div>
-        <div class="eb-row"><span class="k">Tax</span><span>${esc(a.tax)}</span></div>
-        <div class="eb-row" style="font-weight:800; border-top:1px solid var(--line)"><span>Order total</span><span>${esc(a.total)}</span></div>
-        ${btn('ebPay', m.pay)}
-      </div>`;
-    $('#ebPay').addEventListener('click', ()=>renderEB('done'));
-  }
-  if(view === 'done'){
-    body.innerHTML = `
-      <div class="eb-hdr">${shopLogoInline(store)}</div>
-      <div class="eb-body">
-        <div class="eb-ok" style="background:${m.color}"><svg width="30" height="30" viewBox="0 0 34 34"><path d="M8 17.5l6.5 6.5L26 10.5" stroke="#fff" stroke-width="3.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-        <div class="eb-done-h">Order confirmed</div>
-        <div class="eb-done-p">Thanks Jack! Your order is confirmed.<br>Order number: ${m.orderNo} · ${esc(a.total)} paid with Visa ···· 4242<br>Arriving Aug 16 – Aug 18</div>
-        ${btn('ebDone', 'Done')}
-      </div>`;
-    $('#ebDone').addEventListener('click', ()=>{ closeEbay(); closePDP(); });
-  }
+  body.innerHTML = site[view](p, a);
+  if(view === 'item')     $('#ebBuy').addEventListener('click', ()=>renderEB('checkout'));
+  if(view === 'checkout') $('#ebPay').addEventListener('click', ()=>renderEB('done'));
+  if(view === 'done')     $('#ebDone').addEventListener('click', ()=>{ closeEbay(); closePDP(); });
   body.scrollTop = 0;
 }
 
@@ -2540,7 +2745,8 @@ function editPayment(){
 /* stnew: the card-binding form (dismiss = cancel the pending payment) */
 function openStripeBind(){
   state.psMode = 'pay';
-  renderPS('newcard');
+  state.psSel = 'saved';                     // the "Card · Set up required" row is preselected
+  renderPS('main');                          // picker first; "Add ›" (or Continue) opens the card form
   $('#paysheet').classList.add('on');
 }
 
@@ -2710,13 +2916,14 @@ function storeLogo(id){
   const path = id==='shopee' ? BRAND.shopee : STORE_PATHS[id];
   return `<svg width="22" height="22" viewBox="0 0 24 24"><path d="${path}" fill="${STORE_META[id].color}"/></svg>`;
 }
-/* comparison rows per product: Shopee (main channel) leads and is cheapest;
-   act:'buy' behaves like the blue CTA, act:'view' opens the merchant's site */
+/* comparison rows per product: Shopee (main channel) leads and is cheapest with
+   Buy = agentic checkout; every other merchant is View = buy on their site in
+   the in-app browser */
 function supplierRows(p){
   const base = parseFloat(p.price.replace('$',''));
   const rows = [
     {store:'shopee',  d:0,   rating:'4.8', act:'buy'},
-    {store:'ebay',    d:2.5, rating:'4.3', act:'buy'},
+    {store:'ebay',    d:2.5, rating:'4.3', act:'view'},
     {store:'walmart', d:3.5, rating:'4.5', act:'view'},
     {store:'ebay',    d:5,   rating:'4.2', act:'view'}
   ];
@@ -2792,7 +2999,7 @@ $('#pdpSpecs').addEventListener('click', e=>{
     if(gp) gp.textContent = sw.dataset.c;
   }
 });
-/* supplier list: Buy = agentic checkout; View = the merchant's site in the in-app browser */
+/* supplier list: Buy (Shopee) = agentic checkout; View = buy on the merchant's site in the in-app browser */
 $('#supList').addEventListener('click', e=>{
   const viewLnk = e.target.closest('[data-view]');
   const btn = e.target.closest('.sup-btn');
@@ -3039,7 +3246,7 @@ function chatSetup(){ return false; }
 function onCardSetup(){ return newUser() && !chatSetup(); }
 
 const NOTES = {
-  stnew:'New user, completed on the card: the order card is issued with an empty Deliver-to row ("Add delivery address") and an "Add card" payment row. Tapping Pay without an address prompts for one first (empty address book → add manually); once set, tapping Pay or the payment pencil opens the Add-card form, and adding the card binds it and pays immediately. Saves show on the card only — no chat echo.',
+  stnew:'New user, completed on the card: the order card is issued with an empty Deliver-to row ("Add delivery address") and an "Add card" payment row. Tapping Pay without an address prompts for one first (empty address book → add manually); once set, tapping Pay or the payment pencil opens the payment picker with the "Card · Set up required" row preselected; Add › (or Continue) opens the card form, and adding the card binds it and pays immediately. Saves show on the card only — no chat echo.',
   stripe:'Returning user: an address and a card (···· 6789) are already on file, so "Pay now" verifies with Face ID and then charges — Face ID → Processing → receipt. The Deliver-to pencil opens the address book; the Payment pencil opens the Choose-payment sheet to switch methods. After the recap Migoo offers to remember the details, then to track the order as an auto-task.'
 };
 
