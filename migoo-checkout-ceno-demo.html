@@ -1901,7 +1901,7 @@ function renderPS(view){
       <button class="ps-cta" data-act="add-card">Add card</button>`;
   }
 }
-function openPaySheet(mode = 'edit'){        // 'edit' = pencil; 'pay' = Stripe-path checkout picker
+function openPaySheet(mode = 'edit'){        // 'edit' = pencil; 'pay' = opened from Pay now with no card bound
   state.psMode = mode;
   if(PAY_METHODS.some(m=>m.id===state.pay.id)){ state.savedSel = state.pay.id; state.psSel = 'saved'; }
   else {
@@ -1930,13 +1930,11 @@ function applyPS(){
     next = {id:w.id, logo:w.logo, label:w.name, payName:w.payName};
   }
   if(state.psMode === 'pay'){
-    // Stripe-path checkout: Continue confirms the method and pays right away (no challenge)
+    // opened from Pay now with no card bound: Continue confirms the method and hands
+    // control back to the order card — the user taps Pay now again to actually pay
     state.pay = next;
+    closePaySheet();                         // releases the countdown + Pay now
     refreshOrderPay();
-    state.psMode = 'edit';                   // clear before closing so the dismiss-cancel doesn't fire
-    $('#paysheet').classList.remove('on');
-    state.paying = true;
-    payProcessing();
     return;
   }
   const changed = next.id !== state.pay.id;
@@ -1987,12 +1985,10 @@ $('#psBody').addEventListener('click', e=>{
     }
     state.savedSel='mc4444'; state.psSel='saved';
     if(state.pay.id === 'st-none'){
+      // first card bound: it goes onto the order card, and the user taps Pay now themselves
       state.pay = {id:'mc4444', logo:'mastercard', label:'···· 4444', payName:'Mastercard ···· 4444'};
-      state.psMode = 'edit';
-      $('#paysheet').classList.remove('on');
+      closePaySheet();                    // 'pay' mode close: releases the countdown + Pay now
       refreshOrderPay();
-      state.paying = true;                // the bound card pays this order now
-      payProcessing();
       return;
     }
     renderPS('main');
@@ -2204,8 +2200,8 @@ function issueOrderCard(){
     }
     b.disabled = true;
     state.paying = true;                               // freeze the countdown while verification runs
-    // standalone paths: a new user binds a card first; a returning user verifies
-    // the charge with Face ID, exactly like the in-Shopee returning flow
+    // no card yet: bind one first (the sheet hands back to Pay now); with a card
+    // on file, verify the charge with Face ID
     if(standalone()){
       if(state.pay.id === 'st-none'){
         b.disabled = false;                                // sheet can be dismissed — allow retry
@@ -3246,7 +3242,7 @@ function chatSetup(){ return false; }
 function onCardSetup(){ return newUser() && !chatSetup(); }
 
 const NOTES = {
-  stnew:'New user, completed on the card: the order card is issued with an empty Deliver-to row ("Add delivery address") and an "Add card" payment row. Tapping Pay without an address prompts for one first (empty address book → add manually); once set, tapping Pay or the payment pencil opens the payment picker with the "Card · Set up required" row preselected; Add › (or Continue) opens the card form, and adding the card binds it and pays immediately. Saves show on the card only — no chat echo.',
+  stnew:'New user, completed on the card: the order card is issued with an empty Deliver-to row ("Add delivery address") and an "Add card" payment row. Tapping Pay without an address prompts for one first (empty address book → add manually); once set, tapping Pay or the payment pencil opens the payment picker with the "Card · Set up required" row preselected; Add › (or Continue) opens the card form; adding the card only binds it — the Payment row refreshes and the user taps Pay now again, which verifies with Face ID and charges. Saves show on the card only — no chat echo.',
   stripe:'Returning user: an address and a card (···· 6789) are already on file, so "Pay now" verifies with Face ID and then charges — Face ID → Processing → receipt. The Deliver-to pencil opens the address book; the Payment pencil opens the Choose-payment sheet to switch methods. After the recap Migoo offers to remember the details, then to track the order as an auto-task.'
 };
 
