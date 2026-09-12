@@ -2042,7 +2042,7 @@ function completeRegistration(){
   const chip = [...document.querySelectorAll('.order-wrap:not(.stale) .pm-chip')].pop();
   if(chip) chip.innerHTML = payLogo('shopeepay',26,18) + '<span>···· 6789</span>';
   aiMsg([{t:'p', text:'✅ Face ID registered! Migoo will verify with your Face ID whenever it makes a purchase for you.'}]);
-  after(()=>faceID(()=>payProcessing()), 900);
+  after(()=>payProcessing(), 900);
 }
 function closeEnrollSheet(){ $('#enroll').classList.remove('on'); }
 
@@ -2190,7 +2190,7 @@ function issueOrderCard(){
     window.__orderWrap.classList.add('stale');
     window.__orderWrap.querySelectorAll('button').forEach(b=>b.disabled = true);
   }
-  // main-flow quick pay: Face ID in place, then a success message in the chat
+  // main-flow quick pay: Processing on the button, then a success message in the chat
   const {wrap, btn} = orderMsg(orderSpec(), (b)=>{
     if(paid()){ b.disabled = true; return; }   // already paid — never pay twice
     if(!state.addr){                                   // nothing to ship to yet
@@ -2199,16 +2199,16 @@ function issueOrderCard(){
       return;
     }
     b.disabled = true;
-    state.paying = true;                               // freeze the countdown while verification runs
+    state.paying = true;                               // freeze the countdown while the charge runs
     // no card yet: bind one first (the sheet hands back to Pay now); with a card
-    // on file, verify the charge with Face ID
+    // on file, charge it straight away — no Face ID step
     if(standalone()){
       if(state.pay.id === 'st-none'){
         b.disabled = false;                                // sheet can be dismissed — allow retry
         openStripeBind();
         return;
       }
-      faceID(()=>payProcessing());
+      payProcessing();
       return;
     }
     // brand-new user: register Face ID for Agentic Checkout (PIN-confirmed), then pay with it
@@ -2219,7 +2219,7 @@ function issueOrderCard(){
     }
     // bound ShopeePay without Face ID enrollment: pay with the existing PIN
     if(state.pay.id === 'sp6789' && !state.spEnrolled){ openPin('pay'); return; }
-    faceID(()=>payProcessing());
+    payProcessing();
   });
   window.__orderWrap = wrap;
   window.__orderBtn = btn;
@@ -3224,8 +3224,8 @@ const S_LOOKUP = { label:'Order lookup', run(){
         then(()=>next(), 2600);        // the tracking auto-task reports in on its own
       }, 700);
   }};
-/* two experience paths: a first-time user registers Face ID for Agentic
-   Checkout (PIN-confirmed) right at payment; a returning user pays via Face ID */
+/* two experience paths: a first-time user binds a card on the order card before
+   paying; a returning user pays with the card on file — neither verifies with Face ID */
 const FLOWS = {
   stnew:  [S_LIST, S_REQ, S_CREATE, S_CARD, S_PAID, S_RECAP, S_AUTOTASK, S_LOOKUP, S_SHIPPED],
   stripe: [S_LIST, S_REQ, S_CREATE, S_CARD, S_PAID, S_RECAP, S_MEMORY, S_AUTOTASK, S_LOOKUP, S_SHIPPED]
@@ -3242,8 +3242,8 @@ function chatSetup(){ return false; }
 function onCardSetup(){ return newUser() && !chatSetup(); }
 
 const NOTES = {
-  stnew:'New user, completed on the card: the order card is issued with an empty Deliver-to row ("Add delivery address") and an "Add card" payment row. Tapping Pay without an address prompts for one first (empty address book → add manually); once set, tapping Pay or the payment pencil opens the payment picker with the "Card · Set up required" row preselected; Add › (or Continue) opens the card form; adding the card only binds it — the Payment row refreshes and the user taps Pay now again, which verifies with Face ID and charges. Saves show on the card only — no chat echo.',
-  stripe:'Returning user: an address and a card (···· 6789) are already on file, so "Pay now" verifies with Face ID and then charges — Face ID → Processing → receipt. The Deliver-to pencil opens the address book; the Payment pencil opens the Choose-payment sheet to switch methods. After the recap Migoo offers to remember the details, then to track the order as an auto-task.'
+  stnew:'New user, completed on the card: the order card is issued with an empty Deliver-to row ("Add delivery address") and an "Add card" payment row. Tapping Pay without an address prompts for one first (empty address book → add manually); once set, tapping Pay or the payment pencil opens the payment picker with the "Card · Set up required" row preselected; Add › (or Continue) opens the card form; adding the card only binds it — the Payment row refreshes and the user taps Pay now again, which charges it (Processing → receipt, no Face ID). Saves show on the card only — no chat echo.',
+  stripe:'Returning user: an address and a card (···· 6789) are already on file, so "Pay now" charges straight away — Processing → receipt, no verification step. The Deliver-to pencil opens the address book; the Payment pencil opens the Choose-payment sheet to switch methods. After the recap Migoo offers to remember the details, then to track the order as an auto-task.'
 };
 
 function next(){
@@ -3292,7 +3292,7 @@ function clearShell(){
   state.addrDraft = '';
   state.addrEditing = false;
   state.addrSent = false;
-  state.spEnrolled = true;                  // Face ID is always enrolled in the standalone shell
+  state.spEnrolled = true;                  // no PIN/Face ID challenges in the standalone shell
   state.psMode = 'edit';
   state.ckProt = false; state.ckView = 'form';
   closeCheckout();
