@@ -960,6 +960,7 @@ body{
 .devbar h4{margin:0 0 4px; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3); font-weight:600}
 .devbar h4:not(:first-child){margin-top:18px}
 .devbar .seg{display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:8px}
+.devbar .seg.addr3{grid-template-columns:1fr}
 .devbar .seg button{
   border:1px solid var(--line-2); background:#fff; border-radius:9px;
   padding:8px 2px; font-family:var(--font); font-size:12px; font-weight:600; color:var(--ink-2); cursor:pointer;
@@ -1245,8 +1246,9 @@ body{
     <button data-user="stripe">Returning</button>
   </div>
   <h4>Address</h4>
-  <div class="seg">
-    <button data-addr="none" class="on">No address</button>
+  <div class="seg addr3">
+    <button data-addr="none" class="on">No address · GPS</button>
+    <button data-addr="nogps">No address · no GPS</button>
     <button data-addr="memory">In memory</button>
   </div>
   <h4>Steps</h4>
@@ -3201,7 +3203,8 @@ const S_REQ = { label:'Order request', run(){
    before the order is created. ---- */
 const NEW_ADDR_LINE_1 = '2130 Fillmore St, Apt 4B, San Francisco, CA';
 const NEW_ADDR_LINE_2 = 'ZIP is 94115, phone +1 (415) 555-6432';
-function proposedAddr(){ return state.addrMode === 'memory' ? SAVED_ADDR : HERE_ADDR; }
+const NEW_ADDR_FULL   = '2130 Fillmore St, Apt 4B, San Francisco, CA 94115, phone +1 (415) 555-6432';
+function proposedAddr(){ return state.addrMode === 'memory' ? SAVED_ADDR : state.addrMode === 'nogps' ? TYPED_ADDR : HERE_ADDR; }
 /* what is still missing from the typed address */
 function addrGaps(text){
   const gaps = [];
@@ -3213,10 +3216,30 @@ function addrGaps(text){
 }
 function askAddr(){
   const a = proposedAddr();
-  aiMsg(state.addrMode === 'memory'
-    ? [{t:'p', text:`I have a delivery address in memory — shall I ship this to ${a.address.replace(', USA','')}?`}]
-    : [{t:'p', text:'I don’t have a delivery address for you yet. Shall I ship this to your current location?'},
-       {t:'p', text:`📍 ${a.address.replace(', USA','')}`}]);
+  if(state.addrMode === 'memory'){
+    aiMsg([
+      {t:'p', text:'I have a delivery address in memory — shall I ship this there?'},
+      {t:'ul', items:[
+        `Address: ${a.address.replace(', USA','')}`,
+        `ZIP code: ${a.postal}`,
+        `Phone: ${a.phone}`
+      ]}
+    ]);
+    return;
+  }
+  if(state.addrMode === 'nogps'){
+    aiMsg([
+      {t:'p', text:'I don’t have any delivery details for you yet, and I can’t read your location right now. Please send me, in one message:'},
+      {t:'ul', items:[
+        'Your street address, with the unit or floor',
+        'The ZIP code',
+        'A phone number for the courier'
+      ]}
+    ]);
+    return;
+  }
+  aiMsg([{t:'p', text:'I don’t have a delivery address for you yet. Shall I ship this to your current location?'},
+         {t:'p', text:`📍 ${a.address.replace(', USA','')}`}]);
 }
 function acceptAddr(a, source){
   state.addr = a;
@@ -3246,7 +3269,7 @@ function armPhone(){
   });
 }
 function armNewAddr(round){
-  const text = round === 0 ? NEW_ADDR_LINE_1 : NEW_ADDR_LINE_2;
+  const text = round === 'full' ? NEW_ADDR_FULL : round === 0 ? NEW_ADDR_LINE_1 : NEW_ADDR_LINE_2;
   setPending(text, ()=>{
     userMsg(text);
     state.addrDraft = state.addrDraft ? state.addrDraft + ', ' + text : text;
@@ -3268,8 +3291,14 @@ const S_ADDR = { label:'Delivery address', run(){
       setPending(null);
       state.addrDraft = '';
       const a = proposedAddr();
-      if(instant){                          // jumped past this step: replay the accepted proposal
+      if(instant){                          // jumped past this step: replay the finished exchange
         askAddr();
+        if(state.addrMode === 'nogps'){       // no proposal to accept — the address was typed in full
+          userMsg(NEW_ADDR_FULL);
+          acceptAddr(TYPED_ADDR, 'typed');
+          aiMsg([{t:'p', text:`✅ That’s complete — shipping to ${TYPED_ADDR.address.replace(', USA','')}, courier can reach you at ${TYPED_ADDR.phone}.`}]);
+          return;
+        }
         userMsg('Yes, ship there');
         if(state.addrMode === 'none'){        // current location: the phone was collected too
           askPhone(); userMsg(PHONE_LINE);
@@ -3280,6 +3309,10 @@ const S_ADDR = { label:'Delivery address', run(){
       }
       after(()=>{
         askAddr();
+        if(state.addrMode === 'nogps'){       // nothing to confirm — type the complete address in one message
+          after(()=>armNewAddr('full'), 600);
+          return;
+        }
         after(()=>{
           followupMsg([
             {label:'Yes, ship there', onTap:()=>{
@@ -3305,7 +3338,7 @@ const S_ADDR = { label:'Delivery address', run(){
 const S_CREATE = { label:'Creating order', run(){
       removeFollowups();
       setPending(null);
-      if(!state.addr) acceptAddr(proposedAddr(), state.addrMode);   // safety net
+      if(!state.addr) acceptAddr(proposedAddr(), state.addrMode === 'nogps' ? 'typed' : state.addrMode);   // safety net
       after(()=>{
         aiMsg([{t:'p', text:
             state.addrSource === 'typed'  ? 'Great — creating the order with the address you just gave me, this may take a moment.'
@@ -3319,7 +3352,7 @@ const S_CREATE = { label:'Creating order', run(){
 const S_CARD = { label:'Order card · pay CTA', run(){
       thread.querySelectorAll('.working').forEach(n=>n.remove());
       $('#taskBadge').classList.add('on');
-      if(!state.addr) acceptAddr(proposedAddr(), state.addrMode);
+      if(!state.addr) acceptAddr(proposedAddr(), state.addrMode === 'nogps' ? 'typed' : state.addrMode);
       issueOrderCard();
   }};
 const S_PAID = { label:'Payment success (chat)', run(){
@@ -3474,7 +3507,8 @@ function onCardSetup(){ return newUser() && !chatSetup(); }
 
 const ADDR_NOTES = {
   none:'Address · none: Migoo has no address on file, so after the buy request it proposes shipping to the current location (315 Montgomery St). "Yes, ship there" accepts it and Migoo then asks for a phone number to complete the delivery details; "Enter a new address" asks for a typed address, which must carry the street and unit, a ZIP code and a phone number — anything missing is called out and completed in a second message — before the order card is issued with the full typed address.',
-  memory:'Address · in memory: the same exchange, but Migoo proposes the remembered address (535 Mission St, Floor 14) instead of the current location.'
+  nogps:'Address · none, no GPS: Migoo has no address on file and cannot read the location either, so it asks outright for the street and unit, the ZIP code and a phone number. The user sends all of it in one message, it passes the completeness check, and the order card is issued with the full typed address.',
+  memory:'Address · in memory: Migoo proposes the remembered address and spells out the address, ZIP code and phone number for the user to confirm; "Yes, ship there" accepts it, "Enter a new address" runs the typed-address exchange instead.'
 };
 const NOTES = {
   stnew:'New user: the delivery address is settled in the chat first (see Address), then the order card is issued with an "Add card" payment row. Tapping Pay or the payment pencil opens the payment picker with the "Card · Set up required" row preselected; Add › (or Continue) opens the card form. Add card → an SMS code arrives and fills itself in → Confirm → set a 6-digit Migoo PIN → Face ID offer: "Register Face ID" runs the scan and later purchases verify with Face ID; "Maybe later" keeps the PIN as the confirmation step. The card then lands on the Payment row and the user taps Pay now themselves. Saves show on the card only — no chat echo.',
@@ -3570,11 +3604,17 @@ function buildStepList(){
 function highlightStep(){
   $('#stepList').querySelectorAll('button').forEach((b,i)=>b.classList.toggle('on', i===state.step));
 }
+function setAddrMode(mode){
+  state.addrMode = mode;
+  document.querySelectorAll('.devbar .seg button[data-addr]').forEach(n=>n.classList.toggle('on', n.dataset.addr === mode));
+}
 document.querySelectorAll('.devbar .seg button[data-user]').forEach(b=>{
   b.addEventListener('click', ()=>{
     document.querySelectorAll('.devbar .seg button[data-user]').forEach(n=>n.classList.remove('on'));
     b.classList.add('on');
     state.userType = b.dataset.user;
+    // a returning user has an address in memory by default; a new user has none
+    setAddrMode(b.dataset.user === 'stripe' ? 'memory' : 'none');
     buildStepList();
     reset();
   });
