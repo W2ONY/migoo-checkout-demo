@@ -237,6 +237,9 @@ body{
 .cta.processing{background:var(--ink-4) !important; cursor:default}
 /* paid receipt flip */
 .order.receipt .pen{display:none}
+.order .support{display:flex; justify-content:space-between; align-items:center; gap:12px; font-size:13px; margin-top:12px; padding-top:12px; border-top:1px solid var(--line)}
+.order .support .k{color:var(--ink-3)}
+.order .support .v{color:var(--blue); font-weight:500}
 .ok-badge{width:22px; height:22px; flex:0 0 22px; border-radius:50%; border:1.8px solid #1DA462; display:flex; align-items:center; justify-content:center}
 .cap-done{font-size:14.5px; font-weight:700; color:var(--ink); flex:1}
 .order-num{font-size:11.5px; color:var(--ink-3)}
@@ -979,7 +982,7 @@ body{
   width:100%; margin-top:14px; border:0; background:var(--surface-2); color:var(--ink);
   border-radius:9px; padding:10px 0; font-family:var(--font); font-size:12.5px; font-weight:600; cursor:pointer;
 }
-.devbar .note{margin-top:14px; font-size:11px; line-height:1.5; color:var(--ink-3)}
+
 </style>
 </head>
 <body>
@@ -1240,10 +1243,15 @@ body{
 
 <!-- ============ dev bar ============ -->
 <div class="devbar">
+  <h4>Host</h4>
+  <div class="seg">
+    <button data-host="ceno" class="on">Ceno / Stripe</button>
+    <button data-host="shopee">Shopee</button>
+  </div>
   <h4>User</h4>
   <div class="seg">
-    <button data-user="stnew" class="on">New</button>
-    <button data-user="stripe">Returning</button>
+    <button data-user="stnew" class="on">Never paid</button>
+    <button data-user="stripe">Paid before</button>
   </div>
   <h4>Address</h4>
   <div class="seg addr3">
@@ -1256,7 +1264,6 @@ body{
   <button class="restart" id="restart">↻ Restart</button>
   <button class="restart" id="openPdpBtn" style="margin-top:8px">Open product page</button>
   <button class="restart" id="expireBtn" style="margin-top:8px">Expire order (5s)</button>
-  <div class="note" id="pathNote"></div>
 </div>
 
 <script>
@@ -1583,7 +1590,9 @@ function payProcessing(){
   state.timers.push(setTimeout(()=>advance(stepAt(S_PAID)), 1100));
 }
 
-/* paid → the order card flips into a receipt (Stripe-style) with View Details */
+/* paid → the order card flips into a receipt: Purchase Complete, Sold by, and the
+   Pay button gives way to a Customer Support row pointing at the merchant's help site */
+function supportHost(){ return `help.${(state.orderStore || 'Shopee').toLowerCase()}.com`; }
 const ORDER_NO = '#25081500427';
 function flipToReceipt(){
   const wrap = window.__orderWrap; if(!wrap) return;
@@ -1601,10 +1610,9 @@ function flipToReceipt(){
   const legal = card.querySelector('.legal'); if(legal) legal.remove();
   const b = window.__orderBtn;
   if(b){
-    const nb = el('button','cta'); nb.textContent = 'View Details';
-    nb.addEventListener('click', openOrderDetails);
-    b.replaceWith(nb);
-    window.__orderBtn = nb;
+    const row = el('div','support', `<span class="k">Customer Support</span><span class="v">${esc(supportHost())}</span>`);
+    b.replaceWith(row);
+    window.__orderBtn = null;               // nothing left to tap on a settled order
   }
 }
 
@@ -1625,7 +1633,7 @@ function openOrderDetails(){
     <div class="od-kv"><span class="k">Shipping To</span><span class="v">Jack Tate<br>${esc(addr.address)}</span></div>
     <div class="od-kv"><span class="k">Order #</span><span class="v">${ORDER_NO.slice(1)}</span></div>
     <div class="od-kv"><span class="k">Estimated Delivery</span><span class="v">Aug 16 – Aug 17</span></div>
-    <div class="od-kv"><span class="k">Customer Support</span><span class="v link">help.${state.orderStore.toLowerCase()}.com</span></div>
+    <div class="od-kv"><span class="k">Customer Support</span><span class="v link">${esc(supportHost())}</span></div>
     <div class="od-sec">Payment Details</div>
     <div class="od-kv"><span class="k">Subtotal</span><span class="v">${esc(a.price)}</span></div>
     <div class="od-kv"><span class="k">Shipping</span><span class="v">FREE</span></div>
@@ -2072,18 +2080,17 @@ function openEnrollSheet(){
   });
   $('#enroll').classList.add('on');
 }
-/* PIN confirmed → wallet bound + Face ID enrolled in one go; this payment verifies with it */
+/* PIN confirmed → Face ID scanned → ShopeePay bound + Face ID enrolled. Like the card
+   chain on the ceno host, this only sets the payment method up — the user taps Pay now
+   themselves, which then verifies with Face ID. */
 function completeRegistration(){
-  const ob = window.__orderBtn; if(ob) ob.disabled = true;   // payment chain in flight — no second tap
-  state.paying = true;        // …and freeze pencils, chips and the countdown for the whole chain
   if(!PAY_METHODS.some(m=>m.id==='sp6789')) PAY_METHODS.unshift({...INIT_METHODS[0]});
   state.savedSel = 'sp6789'; state.psSel = 'saved';
   state.pay = {id:'sp6789', logo:'shopeepay', label:'···· 6789', payName:'Shopee Pay'};
   state.spEnrolled = true;
-  const chip = [...document.querySelectorAll('.order-wrap:not(.stale) .pm-chip')].pop();
-  if(chip) chip.innerHTML = payLogo('shopeepay',26,18) + '<span>···· 6789</span>';
-  aiMsg([{t:'p', text:'✅ Face ID registered! Migoo will verify with your Face ID whenever it makes a purchase for you.'}]);
-  after(()=>faceID(()=>payProcessing()), 900);
+  state.paying = false;
+  refreshOrderPay();
+  toast('Face ID registered — ShopeePay ···· 6789 is linked. Tap Pay now to pay.');
 }
 function closeEnrollSheet(){ $('#enroll').classList.remove('on'); }
 
@@ -2226,7 +2233,10 @@ $('#kb').addEventListener('pointerdown', e=>{
       else if(state.pinMode === 'pay'){ closePin(); payProcessing(); }    // checkout paid with PIN
       else if(state.pinMode === 'pay-pin'){ openPin('pay-otp'); }         // no-Face-ID: PIN ok → SMS code
       else if(state.pinMode === 'pay-otp'){ closePin(); payProcessing(); } // no-Face-ID: code ok → paid
-      else if(state.pinMode === 'reg'){ closePin(); closeEnrollSheet(); completeRegistration(); }  // registered → pay via Face ID
+      else if(state.pinMode === 'reg'){                                    // PIN ok → scan the face to register it
+        closePin(); closeEnrollSheet();
+        state.timers.push(setTimeout(()=>faceID(()=>completeRegistration()), 320));
+      }
       else if(state.pinMode === 'card-otp'){ const b = $('#otpConfirm'); if(b) b.disabled = false; }  // typed the code by hand
       else if(state.pinMode === 'card-pin'){ closePin(); offerFaceID(); }                          // PIN set → Face ID offer
     }, 420));
@@ -3147,7 +3157,7 @@ let state = { step:0, timers:[], entry:null, orderKey:'bag3', addr:null,
               savedSel:'sp6789', psSel:'saved', psView:'main',
               spEnrolled:false, pinMode:null, pinBuf:'', userType:'stnew', addrSent:false,
               orderTimer:null, orderDeadline:0, orderStore:'Shopee', orderPrice:null,
-              ckProt:false, ckView:'form', picked:{}, defaultAddr:null, addrMode:'none', addrSource:null };
+              ckProt:false, ckView:'form', picked:{}, defaultAddr:null, addrMode:'none', addrSource:null, host:'ceno' };
 /* content delay — when jumping steps it fires immediately so the step's
    full content is on screen */
 function after(fn, ms){
@@ -3201,8 +3211,8 @@ const S_REQ = { label:'Order request', run(){
    the one in memory) and the user either accepts it or types a new one. A typed
    address must carry a detailed street line, a ZIP code and a phone number
    before the order is created. ---- */
-const NEW_ADDR_LINE_1 = '2130 Fillmore St, Apt 4B, San Francisco, CA';
-const NEW_ADDR_LINE_2 = 'ZIP is 94115, phone +1 (415) 555-6432';
+const NEW_ADDR_LINE_1 = '2130 Fillmore St, Apt 4B, San Francisco, CA 94115';
+const NEW_ADDR_LINE_2 = 'My phone is +1 (415) 555-6432';
 const NEW_ADDR_FULL   = '2130 Fillmore St, Apt 4B, San Francisco, CA 94115, phone +1 (415) 555-6432';
 function proposedAddr(){ return state.addrMode === 'memory' ? SAVED_ADDR : state.addrMode === 'nogps' ? TYPED_ADDR : HERE_ADDR; }
 /* what is still missing from the typed address */
@@ -3362,7 +3372,14 @@ const S_PAID = { label:'Payment success (chat)', run(){
       state.addrEditing = false;
       state.paying = false;        // payment settled — later chips/pencils must not be blocked
       stopOrderCountdown();
-      flipToReceipt();             // card becomes the receipt (Purchase Complete + View Details)
+      if(instant && newUser() && (state.pay.id === 'st-none' || state.pay.id === 'sp-new')){
+        // jumped past the pay step: the method was bound during it — replay that on the card
+        if(standalone()) finishCardBind(true); else completeRegistration();
+        $('#toast').classList.remove('on');
+        // refreshOrderPay() refuses to touch a settled card, so write the bound method directly
+        refreshRow('pay', `<span class="pm-chip">${payLogo(state.pay.logo,26,18)}<span>${esc(state.pay.label)}</span></span>`);
+      }
+      flipToReceipt();             // card becomes the receipt (Purchase Complete + Customer Support)
       if(!onCardSetup()) aiMsg([{t:'p', text:`✅ Payment successful! ${orderAmounts().total} paid with ${state.pay.payName}.`}]);
       then(()=>showMail(), 600);
       then(()=>hideMail(), 3100);
@@ -3483,7 +3500,7 @@ const S_LOOKUP = { label:'Order lookup', run(){
       setPending(null);
       userMsg(lookupQuery());
       after(()=>{
-        aiMsg([{t:'p', text:`Found it — order ${ORDER_NO} is confirmed and on its way. Here’s the receipt; tap View Details for the full breakdown:`}]);
+        aiMsg([{t:'p', text:`Found it — order ${ORDER_NO} is confirmed and on its way. Here’s the receipt:`}]);
         orderCardCopy();
         then(()=>next(), 2600);        // the tracking auto-task reports in on its own
       }, 700);
@@ -3495,8 +3512,10 @@ const FLOWS = {
   stripe: [S_LIST, S_REQ, S_ADDR, S_CREATE, S_CARD, S_PAID, S_RECAP, S_MEMORY, S_AUTOTASK, S_LOOKUP, S_SHIPPED]
 };
 function curFlow(){ return FLOWS[state.userType]; }
-/* every path runs in the standalone migoo shell (Amazon/eBay merchants, bank cards) */
-function standalone(){ return true; }
+/* host: 'ceno' = the standalone migoo shell (bank cards, Migoo PIN / Face ID);
+   'shopee' = migoo inside the Shopee frame (ShopeePay, Shopee Payment Method sheet,
+   address import from Shopee). The sub-paths (User / Address / Steps) are the same. */
+function standalone(){ return state.host !== 'shopee'; }
 /* a brand-new user has neither an address nor a payment method on file… */
 function newUser(){ return state.userType === 'stnew'; }
 /* …and completes both straight on the order card (the in-chat variant was retired) */
@@ -3505,15 +3524,6 @@ function chatSetup(){ return false; }
    the paid receipt, so those saves are not echoed back into the chat */
 function onCardSetup(){ return newUser() && !chatSetup(); }
 
-const ADDR_NOTES = {
-  none:'Address · none: Migoo has no address on file, so after the buy request it proposes shipping to the current location (315 Montgomery St). "Yes, ship there" accepts it and Migoo then asks for a phone number to complete the delivery details; "Enter a new address" asks for a typed address, which must carry the street and unit, a ZIP code and a phone number — anything missing is called out and completed in a second message — before the order card is issued with the full typed address.',
-  nogps:'Address · none, no GPS: Migoo has no address on file and cannot read the location either, so it asks outright for the street and unit, the ZIP code and a phone number. The user sends all of it in one message, it passes the completeness check, and the order card is issued with the full typed address.',
-  memory:'Address · in memory: Migoo proposes the remembered address and spells out the address, ZIP code and phone number for the user to confirm; "Yes, ship there" accepts it, "Enter a new address" runs the typed-address exchange instead.'
-};
-const NOTES = {
-  stnew:'New user: the delivery address is settled in the chat first (see Address), then the order card is issued with an "Add card" payment row. Tapping Pay or the payment pencil opens the payment picker with the "Card · Set up required" row preselected; Add › (or Continue) opens the card form. Add card → an SMS code arrives and fills itself in → Confirm → set a 6-digit Migoo PIN → Face ID offer: "Register Face ID" runs the scan and later purchases verify with Face ID; "Maybe later" keeps the PIN as the confirmation step. The card then lands on the Payment row and the user taps Pay now themselves. Saves show on the card only — no chat echo.',
-  stripe:'Returning user: an address and a card (···· 6789) are already on file, so "Pay now" verifies with Face ID and then charges — Face ID → Processing → receipt. The Deliver-to pencil opens the address book; the Payment pencil opens the Choose-payment sheet to switch methods. After the recap Migoo offers to remember the details, then to track the order as an auto-task.'
-};
 
 function next(){
   if(instant) return;
@@ -3556,10 +3566,12 @@ function clearShell(){
   state.qbKey = 'bag2'; state.qbPrice = null;
   state.paying = false;
   state.addr = null;
-  state.pay = newUser()
-    ? {id:'st-none', logo:'newcard', label:'Add card', payName:'Card'}
-    : {id:'st6789', logo:'mastercard', label:'···· 6789', payName:'Mastercard ···· 6789'};
-  state.savedSel = newUser() ? null : 'st6789'; state.psSel = 'saved';
+  state.pay = standalone()
+    ? (newUser() ? {id:'st-none', logo:'newcard', label:'Add card', payName:'Card'}
+                 : {id:'st6789', logo:'mastercard', label:'···· 6789', payName:'Mastercard ···· 6789'})
+    : (newUser() ? {id:'sp-new', logo:'shopeepay', label:'Set up ShopeePay', payName:'Shopee Pay'}
+                 : {id:'sp6789', logo:'shopeepay', label:'···· 6789', payName:'Shopee Pay'});
+  state.savedSel = newUser() ? null : (standalone() ? 'st6789' : 'sp6789'); state.psSel = 'saved';
   state.addrDraft = '';
   state.addrEditing = false;
   state.addrSent = false;
@@ -3599,11 +3611,19 @@ function buildStepList(){
     b.addEventListener('click', ()=>gotoStep(i));
     list.appendChild(b);
   });
-  $('#pathNote').textContent = NOTES[state.userType] + ' ' + ADDR_NOTES[state.addrMode];
 }
 function highlightStep(){
   $('#stepList').querySelectorAll('button').forEach((b,i)=>b.classList.toggle('on', i===state.step));
 }
+document.querySelectorAll('.devbar .seg button[data-host]').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('.devbar .seg button[data-host]').forEach(n=>n.classList.remove('on'));
+    b.classList.add('on');
+    state.host = b.dataset.host;
+    buildStepList();
+    reset();
+  });
+});
 function setAddrMode(mode){
   state.addrMode = mode;
   document.querySelectorAll('.devbar .seg button[data-addr]').forEach(n=>n.classList.toggle('on', n.dataset.addr === mode));
@@ -3613,7 +3633,7 @@ document.querySelectorAll('.devbar .seg button[data-user]').forEach(b=>{
     document.querySelectorAll('.devbar .seg button[data-user]').forEach(n=>n.classList.remove('on'));
     b.classList.add('on');
     state.userType = b.dataset.user;
-    // a returning user has an address in memory by default; a new user has none
+    // a user who has paid before has an address in memory by default; one who never paid has none
     setAddrMode(b.dataset.user === 'stripe' ? 'memory' : 'none');
     buildStepList();
     reset();
