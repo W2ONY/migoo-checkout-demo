@@ -1521,11 +1521,6 @@ body{
     <button data-host="ceno" class="on">Migoo</button>
     <button data-host="shopee">Shopee</button>
   </div>
-  <h4>Feature</h4>
-  <div class="seg">
-    <button data-feature="newtopic" class="on">New topic</button>
-    <button data-feature="autotask">Autotask</button>
-  </div>
   <button class="restart" id="restart">↻ Restart</button>
 </div>
 
@@ -3451,7 +3446,7 @@ $('#supToggle').addEventListener('click', ()=>{
 /* =========================================================================
    Flows
    ========================================================================= */
-let state = { step:0, timers:[], entry:null, feature:'newtopic', topicKey:null, orderKey:'bag3', addr:null,
+let state = { step:0, timers:[], entry:null, topicKey:null, orderKey:'bag3', addr:null,
               pay:{id:'sp-new', logo:'shopeepay', label:'ShopeePay', payName:'Shopee Pay'},
               savedSel:'sp6789', psSel:'saved', psView:'main',
               spEnrolled:false, pinMode:null, pinBuf:'', userType:'stripe', addrSent:false,
@@ -3518,7 +3513,6 @@ function historyMsgs(){
 }
 const S_TOPIC = { label:'New topic', run(){
       historyMsgs();
-      if(state.feature === 'autotask') return;       // the auto-task feature has no topic cards
       add(el('div','msg nt-divider', esc('Welcome back, let’s start a new topic')));
       const row = el('div','msg nt-cards');
       TOPICS.forEach(t=>{
@@ -3951,7 +3945,6 @@ function reset(){
   state.step = 0;
   curFlow()[0].run();
   highlightStep();
-  if(state.feature === 'autotask') openAutotaskFeature();   // that feature starts on its page
 }
 
 function gotoStep(i){
@@ -3989,14 +3982,6 @@ document.querySelectorAll('.devbar .seg button[data-host]').forEach(b=>{
    longer devbar dimensions: the demo runs the paid-before + address-in-memory path.
    The other branches stay in the flow code behind state.userType / state.addrMode. */
 $('#restart').addEventListener('click', reset);
-document.querySelectorAll('.devbar .seg button[data-feature]').forEach(b=>{
-  b.addEventListener('click', ()=>{
-    document.querySelectorAll('.devbar .seg button[data-feature]').forEach(n=>n.classList.remove('on'));
-    b.classList.add('on');
-    state.feature = b.dataset.feature;
-    reset();
-  });
-});
 
 /* PDP buy — entry point a; shared by the CTA and supplier Buy buttons.
    Buybox rows decide by their button: Buy = agentic checkout with that offer,
@@ -4222,7 +4207,6 @@ function openAutotasks(tab){
   pg.classList.add('on');
 }
 function closeAutotasks(){ $('#autotasks').classList.remove('on'); $('#atNavMenu').classList.remove('open'); }
-function openAutotaskFeature(){ openSettings(); openAutotasks('updates'); }
 $('#atStatus').innerHTML = document.querySelector('.phone > .statusbar').innerHTML;
 $('#atBack').addEventListener('click', closeAutotasks);
 $('#atMore').addEventListener('click', e => { e.stopPropagation(); $('#atNavMenu').classList.toggle('open'); });
